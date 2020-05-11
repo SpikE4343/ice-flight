@@ -1,0 +1,12 @@
+{
+  "folders": [
+    {
+      "path": "/home/john/code/fpga"
+    }
+  ],
+  "settings": {
+    "files.associations": {
+      "motor_output_dshot.h": "c"
+    }
+  }
+}
