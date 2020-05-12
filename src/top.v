@@ -5,7 +5,10 @@
 `define SBUS_INPUT_RANGE `SBUS_INPUT_MAX - `SBUS_INPUT_MIN
 
 `define MSG_MARKER 8'h7f
-`define MSG_TYPE_TELEMETRY 8'h01
+`define MSG_TYPE_TELEMETRY_GYRO 8'h01
+`define MSG_TYPE_TELEMETRY_CONTROL 8'h02
+`define MSG_TYPE_TELEMETRY_MOTOR 8'h03
+`define MSG_TYPE_TELEMETRY_ATTITUDE 8'h04
 
 // look in pins.pcf for all the pin names on the TinyFPGA BX board
 module top 
@@ -23,7 +26,8 @@ module top
   parameter FIXED_WIDTH_BIT=31,
   parameter TELEMETRY_HZ=1,
   parameter DEBUG_BITS=72,
-  parameter DEBUG_UART_BAUD=115200
+  parameter DEBUG_UART_BAUD=256000,
+  parameter DEBUG_UPDATE_HZ=5
 )
 (
     input CLK,    // 16MHz clock
@@ -54,6 +58,7 @@ module top
 
   localparam MOTOR_DSHOT_FREQ = DSHOT_600_FREQ;
   localparam UPDATE_CLK_TICKS = BASE_FREQ / MOTOR_UPDATE_HZ;
+  localparam DEBUG_SEND_CLK_TICKS = BASE_FREQ / DEBUG_UPDATE_HZ;
   localparam INPUT_THROTTLE = 0;
   localparam INPUT_ROLL = 1;
   localparam INPUT_PITCH = 2;
@@ -67,22 +72,16 @@ module top
   reg [15:0] motorUpdateCount;
   reg motor_send;
   
-  reg signed [31:0] motorThrottle1;
-  reg signed [31:0] motorThrottle2;
-  reg signed [31:0] motorThrottle3;
-  reg signed [31:0] motorThrottle4;
+  reg signed [31:0] motorThrottle[3:0];
 
-  wire [10:0] controlInputs1;
-  wire [10:0] controlInputs2;
-  wire [10:0] controlInputs3;
-  wire [10:0] controlInputs4;
-  wire [10:0] controlInputs5;
+  wire [10:0] controlInputs[4:0];
+
+  reg signed [31:0] inputs[4:0];
 
   // First index should be motor count define
-  reg signed [31:0] motorMix[3:0][3:0];
+  reg signed [7:0] motorMix[3:0][3:0];
 
   wire signed [15:0] gyro_rates_raw[2:0];
-
   reg signed [15:0] gyro_rates_sampled[2:0];
 
   // RX Controls
@@ -109,10 +108,24 @@ module top
   reg debug_load;
   wire dbg_tx_out;
 
-  wire dbg_load;
-  wire [DEBUG_BITS-1:0] dbg_byte;
-
   wire fast_clk;
+
+  localparam c = 0;
+  localparam DEBUG_ST_RESET  = 0;
+  localparam DEBUG_ST_WAIT  = 1;
+  localparam DEBUG_ST_SEND  = 2;
+  localparam DEBUG_ST_LOAD  = 3;
+
+  localparam DEBUG_SEND_COMPLETE     = 0;
+  localparam DEBUG_SEND_GYRO     = 1;
+  localparam DEBUG_SEND_CONTROL  = 2;
+  localparam DEBUG_SEND_MOTOR    = 3;
+  localparam DEBUG_SEND_ATTITUDE = 4;
+
+  reg [4:0] debugState;
+  reg [4:0] debugSendState;
+  reg [31:0] debugUpdateCount;
+
 
 //   static uint16_t sbusChannelsReadRawRC(const rxRuntimeState_t *rxRuntimeState, uint8_t chan)
 // {
@@ -134,10 +147,10 @@ module top
     input [3:0] index;
     begin
       MotorThrottleValue = armed ? 
-            motorMix[index][INPUT_THROTTLE] * (RxRangeInput(controlInputs1)+2000)/4
-           + motorMix[index][INPUT_ROLL]     * RxRangeInput(controlInputs2)
-           + motorMix[index][INPUT_PITCH]    * RxRangeInput(controlInputs3) 
-           + motorMix[index][INPUT_YAW]      * RxRangeInput(controlInputs4)
+            motorMix[index][INPUT_THROTTLE] * inputs[INPUT_THROTTLE]
+           + motorMix[index][INPUT_ROLL]    * inputs[INPUT_ROLL] 
+           + motorMix[index][INPUT_PITCH]   * inputs[INPUT_PITCH]
+           + motorMix[index][INPUT_YAW]     * inputs[INPUT_YAW]
         : 0;
     end
   endfunction
@@ -168,6 +181,13 @@ module top
     motorMix[3][INPUT_ROLL] = -1;
     motorMix[3][INPUT_PITCH] = 1;
     motorMix[3][INPUT_YAW] = -1;
+
+    debugState = DEBUG_ST_RESET;
+    debugUpdateCount = DEBUG_SEND_CLK_TICKS;
+    gyro_rates_sampled[0] = 0;
+    gyro_rates_sampled[1] = 0;
+    gyro_rates_sampled[2] = 0;
+
   end
 
   /*  Generate a 50 MHz internal clock from 16 MHz input clock  */
@@ -207,9 +227,6 @@ module top
   
   assign rx_in = ~PIN_3;
 
-  assign dbg_byte = debug_byte;
-  assign dbg_load = debug_load;
-
   assign PIN_12 = dbg_tx_out;
 
   assign PIN_21 = motorOutputs[0];
@@ -222,50 +239,128 @@ module top
   assign GYRO_MISO = PIN_6;
   assign GYRO_CS = PIN_7;
   
-  assign armed = controlInputs1 > 0;
+  assign armed = controlInputs[0] > 0;
 
-  assign PIN_11 = gyroSampleReady;
-
+  // Sample Gyro State
   always @(posedge gyroSampleReady) begin
     gyro_rates_sampled[0] <= gyro_rates_raw[0];
     gyro_rates_sampled[1] <= gyro_rates_raw[1];
     gyro_rates_sampled[2] <= gyro_rates_raw[2];
   end
 
+  // Update Motor State
   always @(posedge clk) begin
     if( motorUpdateCount > 0) begin
       motorUpdateCount <= motorUpdateCount - 1;
       motor_send <= 0;
-      debug_load <= 0;
     end else begin
       motorUpdateCount <= UPDATE_CLK_TICKS;
       motor_send <= 1;
 
-      motorThrottle1 <= MotorThrottleValue(0);
-      motorThrottle2 <= MotorThrottleValue(1);
-      motorThrottle3 <= MotorThrottleValue(2);
-      motorThrottle4 <= MotorThrottleValue(3);
-
-      // update gyro state
-      debug_byte <= {
-        `MSG_MARKER,
-        `MSG_TYPE_TELEMETRY,
-        8'd6,
-        // little endian
-        gyro_rates_sampled[0][7:0],
-        gyro_rates_sampled[0][15:8],
-        gyro_rates_sampled[1][7:0],
-        gyro_rates_sampled[1][15:8],
-        gyro_rates_sampled[2][7:0],
-        gyro_rates_sampled[2][15:8]
-        };
-
-      debug_load <= 1;
-      //debug_load = 0;
-      //debug_byte = controlInputs1[10:8];
-      //debug_load = 1;
-      //debug_load = 0;
+      motorThrottle[0] <= MotorThrottleValue(0);
+      motorThrottle[1] <= MotorThrottleValue(1);
+      motorThrottle[2] <= MotorThrottleValue(2);
+      motorThrottle[3] <= MotorThrottleValue(3);
     end
+  end
+
+  always @(posedge controls_ready) begin
+    inputs[INPUT_THROTTLE] <= (RxRangeInput(controlInputs[INPUT_THROTTLE])+2000)/4;
+    inputs[INPUT_ROLL] <= RxRangeInput(controlInputs[INPUT_ROLL]);
+    inputs[INPUT_PITCH] <= RxRangeInput(controlInputs[INPUT_PITCH]);
+    inputs[INPUT_YAW] <= RxRangeInput(controlInputs[INPUT_YAW]);
+  end
+
+  always @(posedge clk) begin
+    case(debugState)
+      DEBUG_ST_RESET: begin
+        debugState <= DEBUG_ST_WAIT;
+      end
+      DEBUG_ST_WAIT: 
+      begin
+        if( debugUpdateCount > 0) begin
+          debugUpdateCount <= debugUpdateCount - 1;
+        end else begin
+          debugUpdateCount <= DEBUG_SEND_CLK_TICKS;
+          debugState <= DEBUG_ST_SEND;
+          debugSendState <= DEBUG_SEND_GYRO;
+        end
+      end
+
+      DEBUG_ST_LOAD: 
+      begin
+        debug_load <= 0;
+        if(debugSendState == DEBUG_SEND_COMPLETE)
+          debugState <= DEBUG_ST_WAIT;
+        else
+          debugState <= DEBUG_ST_SEND;
+      end
+
+      DEBUG_ST_SEND: 
+      begin
+        case (debugSendState)
+          DEBUG_SEND_GYRO: 
+          begin
+            debugSendState <= debugSendState +1;
+            debug_byte <= {
+              `MSG_MARKER,
+              `MSG_TYPE_TELEMETRY_GYRO,
+              8'd6,
+              // little endian
+              gyro_rates_sampled[0][7:0],
+              gyro_rates_sampled[0][15:8],
+              gyro_rates_sampled[1][7:0],
+              gyro_rates_sampled[1][15:8],
+              gyro_rates_sampled[2][7:0],
+              gyro_rates_sampled[2][15:8]
+              };
+          end
+
+          DEBUG_SEND_CONTROL: 
+          begin
+            debugSendState <= debugSendState +1;
+            // debug_byte <= {
+            //   `MSG_MARKER,
+            //   `MSG_TYPE_TELEMETRY_CONTROL,
+            //   8'd6,
+            //   // little endian
+            //      motorThrottle[0][7:0],
+            //   motorThrottle[0][15:8],
+            //   motorThrottle[1][7:0],
+            //   motorThrottle[1][15:8],
+            //   motorThrottle[2][7:0],
+            //   motorThrottle[2][15:8]
+            //   };
+          end
+
+          DEBUG_SEND_MOTOR: 
+          begin
+            debugSendState <= debugSendState +1;
+            debug_byte <= {
+              `MSG_MARKER,
+              `MSG_TYPE_TELEMETRY_MOTOR,
+              8'd6,
+              // little endian
+              motorThrottle[0][7:0],
+              motorThrottle[0][15:8],
+              motorThrottle[1][7:0],
+              motorThrottle[1][15:8],
+              motorThrottle[2][7:0],
+              motorThrottle[2][15:8]
+              };
+          end
+
+          DEBUG_SEND_ATTITUDE: begin
+            debugSendState <= DEBUG_SEND_COMPLETE;
+          end
+        endcase
+
+        debug_load <= 1;
+        debugState <= DEBUG_ST_LOAD;
+      end
+
+      
+    endcase
   end
 
   uart #(
@@ -273,9 +368,9 @@ module top
     .INPUT_BITS(DEBUG_BITS)
   ) debug (
     .clock(clk),
-    .txIn(dbg_byte),
+    .txIn(debug_byte),
     .txOut(dbg_tx_out),
-    .txSend(dbg_load),
+    .txSend(debug_load),
     .rxIn(PIN_13)
   );
 
@@ -313,11 +408,11 @@ module top
     .rssi(rssi),
     .failsafe(failsafe),
     .rxFrameLoss(rxFrameLoss),
-    .controls0(controlInputs1),
-    .controls1(controlInputs2),
-    .controls2(controlInputs3),
-    .controls3(controlInputs4),
-    .controls4(controlInputs5)
+    .controls0(controlInputs[0]),
+    .controls1(controlInputs[1]),
+    .controls2(controlInputs[2]),
+    .controls3(controlInputs[3]),
+    .controls4(controlInputs[4])
   );
   
    // Motor Outputs
@@ -325,7 +420,7 @@ module top
     .DSHOT_FREQ(MOTOR_DSHOT_FREQ)
   ) motor1 (
     .clock(clk),
-    .command(motorThrottle1[10:0]),
+    .command(motorThrottle[0][10:0]),
     .send(motor_send),
     .txOut(motorOutputs[0])
   );
@@ -334,7 +429,7 @@ module top
     .DSHOT_FREQ(MOTOR_DSHOT_FREQ)
   ) motor2 (
     .clock(clk),
-    .command((motorThrottle2[10:0])),
+    .command((motorThrottle[1][10:0])),
     .send(motor_send),
     .txOut(motorOutputs[1])
   );
@@ -343,7 +438,7 @@ module top
     .DSHOT_FREQ(MOTOR_DSHOT_FREQ)
   ) motor3 (
     .clock(clk),
-    .command((motorThrottle3[10:0])),
+    .command((motorThrottle[2][10:0])),
     .send(motor_send),
     .txOut(motorOutputs[2])
   );
@@ -352,7 +447,7 @@ module top
     .DSHOT_FREQ(MOTOR_DSHOT_FREQ)
   ) motor4 (
     .clock(clk),
-    .command((motorThrottle4[10:0])),
+    .command((motorThrottle[3][10:0])),
     .send(motor_send),
     .txOut(motorOutputs[3])
   );

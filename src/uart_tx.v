@@ -5,7 +5,7 @@ module uart_tx
   parameter CLKS_PER_BIT = 139,
   parameter WORDBITS = 8,
   parameter STOPBITS = 1,
-  parameter INPUT_BUFFER_DEPTH = 32,
+  parameter INPUT_BUFFER_DEPTH = 16,
   parameter INPUT_BITS=8
 )
 (

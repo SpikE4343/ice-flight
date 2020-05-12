@@ -2,7 +2,7 @@
 module fport_rx_decoder
 #(
   parameter CLK_FREQ=16000000,
-  parameter DEPTH = 64
+  parameter DEPTH = 32
 )
 (
   input       clock,
