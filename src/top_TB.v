@@ -50,6 +50,17 @@ module flight__tb;
     .txOut(rcRxIn)
     );
 
+  wire debug_signal;
+  wire [7:0] debug_byte;
+  wire debug_data_ready;
+  uart_rx #(
+    .CLKS_PER_BIT(16000000/400000)
+  ) debug_rx (
+    .clock(clk_50),
+    .rxIn(debug_signal),
+    .rxDataReady(debug_data_ready),
+    .rxData(debug_byte)
+    );
 
  top #(
    .FIXED_WIDTH_BIT(`FIXED_WIDTH_BIT)
@@ -65,11 +76,13 @@ module flight__tb;
    .PIN_4(SCLK),
    .PIN_5(MOSI),
    .PIN_6(MISO),
-   .PIN_7(CS)
+   .PIN_7(CS),
+
+   .PIN_12(debug_signal)
     
  );
 
-  assign MISO = ~MOSI; 
+  assign MISO = 0; 
  always
   #10 clk_50 = ~clk_50;
   

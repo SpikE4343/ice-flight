@@ -4,14 +4,14 @@ module uart
 #(
   parameter CLKS_PER_BIT = 139,
   parameter WORDBITS = 8,
-  parameter STOPBITS = 1,
-  parameter INPUT_BITS=8
+  parameter STOPBITS = 1
 )
 (
   input       clock,
   input       rxIn,
-  input [INPUT_BITS-1:0] txIn,
+  input [7:0] txIn,
   input       txSend,
+  output      txSendComplete,
 
   output rxDataReady,
   output [7:0] rxData,
@@ -22,13 +22,13 @@ module uart
   uart_tx #(
     .CLKS_PER_BIT(CLKS_PER_BIT),
     .WORDBITS(WORDBITS),
-    .STOPBITS(STOPBITS),
-    .INPUT_BITS(INPUT_BITS)
+    .STOPBITS(STOPBITS)
     ) tx (
     .clock(clock),
     .txIn(txIn),
     .send(txSend),
-    .txOut(txOut)  
+    .txOut(txOut),
+    .sendComplete(txSendComplete)  
     );
 
  //---------------------------------------------------------

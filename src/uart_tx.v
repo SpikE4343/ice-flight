@@ -4,14 +4,13 @@ module uart_tx
 #(
   parameter CLKS_PER_BIT = 139,
   parameter WORDBITS = 8,
-  parameter STOPBITS = 1,
-  parameter INPUT_BUFFER_DEPTH = 16,
-  parameter INPUT_BITS=8
+  parameter STOPBITS = 1
 )
 (
   input clock,
-  input [INPUT_BITS-1:0] txIn,
+  input [7:0] txIn,
   input send,
+  output sendComplete,
   output txOut
 );
 
@@ -21,35 +20,22 @@ module uart_tx
   localparam STOPBIT    = 4'd3;
   localparam RESTART    = 4'd4;
 
-  reg [$clog2(INPUT_BUFFER_DEPTH)-1:0] read_addr;
-  reg [$clog2(INPUT_BUFFER_DEPTH)-1:0] write_addr;
-  reg [7:0] inputBuffer [INPUT_BUFFER_DEPTH-1:0]; 
-
+  reg sending;
   reg [3:0] state;
   reg [7:0] data;
   reg [4:0] bitCount;
   reg [$clog2(CLKS_PER_BIT)-1:0] timerCount;
   reg outputBit;
+  reg sendingComplete;
 
   assign txOut = outputBit;
+  assign sendComplete = sendingComplete;
 
   initial begin
     state <= LISTEN;
     outputBit <= 1'b1;
-    write_addr <= 0;
-    read_addr <= 0;
-  end
-
-  integer i;
-  integer b;
-  always @(posedge send) begin
-    b=INPUT_BITS-1;
-    for(i=0; i < INPUT_BITS / 8; i=i+1) begin
-
-      inputBuffer[write_addr+i] <= txIn[b -:8];
-      b = b - 8;
-    end
-    write_addr <= write_addr + (INPUT_BITS / 8);
+    sending <= 0;
+    data <= 8'h00;
   end
 
   always @(posedge clock) begin
@@ -66,11 +52,12 @@ module uart_tx
       bitCount <= (WORDBITS-1);
       data <= 0;
       outputBit <= 1'b1;
-      
-      if( read_addr != write_addr ) begin
-        data <= inputBuffer[read_addr];
-        read_addr <= read_addr + 1;
+      sendingComplete <= 0;
+
+      if( send && !sending) begin
+        data <= txIn[7 -:8];
         state <= STARTBIT;
+        sending <= 1;
       end
     end
     
@@ -129,6 +116,8 @@ module uart_tx
     RESTART: begin
       if( send == 0 ) state <= LISTEN;
       outputBit <= 1'b1;
+      sending <= 0;
+      sendingComplete <= 1;
       end
     endcase
   end

@@ -30,6 +30,7 @@ module imu_mpu_9250
 
   localparam UPDATE_CLK_TICKS = BASE_FREQ / GYRO_UPDATE_HZ;
   
+  
   wire clk;
   
   // Gyro update
@@ -96,12 +97,16 @@ module imu_mpu_9250
 
   initial begin
     gyroConfigCmds[0] = { `MPU_RA_PWR_MGMT_1, `INV_CLK_PLL };
-    gyroConfigCmds[1] = { `MPU_RA_GYRO_CONFIG, `INV_FSR_1000DPS << 3};
+    gyroConfigCmds[1] = { `MPU_RA_GYRO_CONFIG, `INV_FSR_2000DPS << 3};
     gyroConfigCmds[2] = { `MPU_RA_CONFIG, 8'h07 };
     gyroConfigCmds[3] = { `MPU_RA_SMPLRT_DIV, 8'h00 };
     gyroConfigCmds[4] = { `MPU_RA_ACCEL_CONFIG, `INV_FSR_16G << 3 };
     gyroConfigCmds[5] = { `MPU_RA_INT_PIN_CFG, 8'b00010010};
     gyroConfigCmdCount = 6;
+
+    rates_raw_roll = 16'hFA01;
+    rates_raw_pitch = 16'h2A22;
+    rates_raw_yaw = 16'h3A23;
 
     imu_state = IMU_ST_RESET;
     imu_cfg_state = IMU_ST_CFG_RESET;
