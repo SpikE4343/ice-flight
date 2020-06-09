@@ -14,7 +14,8 @@ module flight__tb;
  //localparam FILESIZE=1040;
  //localparam FILESIZE=76240;
  //localparam FILESIZE=10208;
- localparam FILESIZE=1408;
+ //localparam FILESIZE=1396;
+ localparam FILESIZE=1393;
  //localparam FILESIZE=30;
 
  //---------------------------------------------------------
@@ -26,6 +27,8 @@ module flight__tb;
  reg [16:0] dataIndex;
  reg [7:0] msgData[0:FILESIZE-1];
  reg dataReady;
+ 
+ localparam BASE_FREQ = 100_000_000;
  
 // Gyro SPI
   wire MISO;
@@ -43,7 +46,9 @@ module flight__tb;
   wire motor3;
   wire motor4;
 
-  uart_tx rc_tx (
+  uart_tx #(
+    .CLKS_PER_BIT(BASE_FREQ/115200)
+  )rc_tx (
     .clock(clk_50),
     .send(dataReady),
     .txIn(rxData),
@@ -54,7 +59,7 @@ module flight__tb;
   wire [7:0] debug_byte;
   wire debug_data_ready;
   uart_rx #(
-    .CLKS_PER_BIT(16000000/400000)
+    .CLKS_PER_BIT(BASE_FREQ/400000)
   ) debug_rx (
     .clock(clk_50),
     .rxIn(debug_signal),
@@ -62,29 +67,30 @@ module flight__tb;
     .rxData(debug_byte)
     );
 
- top #(
+ flight #(
+    .BASE_FREQ(BASE_FREQ),
    .FIXED_WIDTH_BIT(`FIXED_WIDTH_BIT)
  ) dut (
    .CLK(clk_50),
-   .PIN_3(~rcRxIn),
+   .RX_IN(~rcRxIn),
    
-   .PIN_21(motor1),
-   .PIN_22(motor2),
-   .PIN_23(motor3),
-   .PIN_24(motor4),
+   .MOTOR_1(motor1),
+   .MOTOR_2(motor2),
+   .MOTOR_3(motor3),
+   .MOTOR_4(motor4),
 
-   .PIN_4(SCLK),
-   .PIN_5(MOSI),
-   .PIN_6(MISO),
-   .PIN_7(CS),
+   .IMU_SCLK(SCLK),
+   .IMU_MOSI(MOSI),
+   .IMU_MISO(MISO),
+   .IMU_CS(CS),
 
-   .PIN_12(debug_signal)
+   .DEBUG_UART_TX(debug_signal)
     
  );
 
   assign MISO = 0; 
  always
-  #10 clk_50 = ~clk_50;
+  #1 clk_50 = ~clk_50;
   
   integer idx;
   initial
@@ -109,7 +115,8 @@ module flight__tb;
     //$readmemh("rxsr-throttle-10208.txt", msgData);
     //$readmemh("rxsr-throttle.txt", msgData);
     //$readmemh("rxsr-throttle-1040.txt", msgData);
-    $readmemh("../captures/rxsr-throttle-1408-hr.txt", msgData);
+    //$readmemh("../captures/rxsr-throttle-1408-hr.txt", msgData);
+    $readmemh("rxsr-throttle-1408-hr.txt", msgData);
 
     clk_50 = 1'b0;
     while (dataIndex < FILESIZE) begin
@@ -117,12 +124,12 @@ module flight__tb;
       #78000 rxData = msgData[dataIndex];
            dataIndex = dataIndex + 1;
            dataReady = 1;
-      #1   dataReady = 0;
+      #2   dataReady = 0;
 
     end
     // at time 0
     
-    #16000000 $finish;
+    #100_000_000 $finish;
     // call the load_count task
   end
 

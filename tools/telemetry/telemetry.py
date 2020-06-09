@@ -9,51 +9,125 @@ import struct
 
 from pyqtgraph.Qt import QtGui, QtCore
 import pyqtgraph as pg
-import numpy as np
+import scipy.fftpack
 
-ser = serial.Serial(port='/dev/ttyUSB0', baudrate=400000, stopbits=1)
+ser = serial.Serial(port='/dev/ttyUSB0', baudrate=2000000, stopbits=1)
 ser.flushInput()
 
-size = 1000
+size = 2000
 pause_time = 0.1
 
-# msgGyro = struct.Struct('< h h h')
 msgGyro = struct.Struct('< h h h')
+
 msgRx = struct.Struct('< H H H H H B B')
-msgMotor = struct.Struct('< h h h h')
+msgMotor = struct.Struct('< i i i i')
 msgInput = struct.Struct('< h h h h h')
 
 x = np.arange(size)
 
 gyroData = [list(range(size)), list(range(size)), list(range(size))]
-rxData = []
-motorData = []
+gyroFFtData = [list(range(size)), list(range(size)), list(range(size))]
+inputsData = [
+    list(range(size)),
+    list(range(size)),
+    list(range(size)),
+    list(range(size))
+]
+motorData = [
+    list(range(size)),
+    list(range(size)),
+    list(range(size)),
+    list(range(size))
+]
+rxData = [
+    list(range(size)),
+    list(range(size)),
+    list(range(size)),
+    list(range(size))
+]
+
 inputData = []
+readByteData = bytearray()
 
-# plt.ion()
-# gyroFig = plt.figure(figsize=(13, 6))
-# gyroAx = gyroFig.add_subplot(111)
-# create a variable for the line so we can later update it
+serialBufferData = list(range(size))
+readBufferLenData = list(range(size))
 
-# x_vec = np.linspace(0, 1, size + 1)[0:-1]
-# gyroline1, = gyroAx.plot(x_vec, gyroData, '-o', alpha=0.8)
-#update plot label/title
-# plt.ylabel('Y Label')
-# plt.title('Title: Gyro')
-# plt.show()
+app = QtGui.QApplication([])
+mw = QtGui.QMainWindow()
+mw.setWindowTitle('Telemetry')
+mw.resize(800, 800)
+cw = QtGui.QWidget()
+mw.setCentralWidget(cw)
+l = QtGui.QVBoxLayout()
+cw.setLayout(l)
 
-index = 0
+# GYRO
+gyroPlot = pg.PlotWidget(name='Gyro')
+gyroPlot.setLabel('left', 'Gyro', units='deg/s')
 
-gyroPlot = pg.plot(title="Gyro [R,P,Y] Deg/s")
-gyroPlot.setYRange(-3000, 3000, padding=None, update=True)
 gyroCurves = []
 for i in range(3):
-    c = gyroPlot.plot(x, gyroData[i], pen=(i, 3))
-    print(c)
+    c = pg.PlotDataItem(x, gyroData[i], pen=(i, 3))
+    gyroPlot.addItem(c)
     gyroCurves.append(c)
 
-# for i in range(3):
-#     plotWidget.plot(x, y[i], pen=(i,3))  ## setting pen=(i,3) automaticaly creates three different-colored pens
+# GYRO FFT
+gyroFftPlot = pg.PlotWidget(name='Gyro FFT')
+gyroFftPlot.setLabel('left', 'Gyro Freq', units='hz')
+
+gyroFftCurves = []
+for i in range(3):
+    c = pg.PlotDataItem(x, gyroFFtData[i], pen=(i, 3))
+    gyroFftPlot.addItem(c)
+    gyroFftCurves.append(c)
+
+# Motors
+motorPlot = pg.PlotWidget(name='Motor')
+motorPlot.setLabel('left', 'Motor', units='t')
+
+motorCurves = []
+for i in range(4):
+    c = pg.PlotDataItem(x, motorData[i], pen=(i, 4))
+    motorPlot.addItem(c)
+    motorCurves.append(c)
+
+# RX data
+inputsPlot = pg.PlotWidget(name='Inputs')
+inputsPlot.setLabel('left', 'Inputs', units='deg/s')
+
+inputsCurves = []
+for i in range(4):
+    c = inputsPlot.plot(x, inputsData[i], pen=(i, 4))
+    inputsCurves.append(c)
+
+# RX data
+rxPlot = pg.PlotWidget(name='RX [T,A,E,R]')
+rxPlot.setLabel('left', 'Rx', units='deg/s')
+
+rxCurves = []
+for i in range(4):
+    c = rxPlot.plot(x, rxData[i], pen=(i, 4))
+    rxCurves.append(c)
+
+l.addWidget(gyroPlot)
+l.addWidget(gyroFftPlot)
+l.addWidget(rxPlot)
+l.addWidget(inputsPlot)
+l.addWidget(motorPlot)
+
+#Serial UART
+serialPlot = pg.PlotWidget(name='UART')
+serialPlot.setLabel('left', 'UART', units='byte')
+l.addWidget(serialPlot)
+c = pg.PlotDataItem(x, serialBufferData, pen=(0, 2))
+serialPlot.addItem(c)
+serialCurve = c
+
+c = pg.PlotDataItem(x, readBufferLenData, pen=(1, 2))
+serialPlot.addItem(c)
+rbCurve = c
+
+mw.show()
 
 
 def last(l):
@@ -63,111 +137,106 @@ def last(l):
     return None
 
 
-while True:
-    try:
-        QtGui.QApplication.processEvents()
-        #print("waiting for data")
-        marker = ser.read(1)[0]
-        # print("marker:", marker)
+def updateData():
+    global readByteData
+
+    serialBufferData.append(ser.in_waiting)
+    if len(serialBufferData) > size:
+        serialBufferData.pop(0)
+
+    serialCurve.setData(serialBufferData)
+
+    if (ser.in_waiting > 0):
+        for d in ser.read(ser.in_waiting):
+            readByteData.append(d)
+
+    readBufferLenData.append(len(readByteData))
+    if (len(readBufferLenData) > size):
+        readBufferLenData.pop(0)
+
+    rbCurve.setData(readBufferLenData)
+
+    count = 0
+    while (count < size and len(readByteData) > 0):
+        marker = readByteData[0]
+        count += 1
+        #print(marker)
         if (marker != 127):
+            readByteData.pop(0)
             continue
 
-        msgType = ser.read(1)[0]
-        msgLen = ser.read(1)[0]
+        if (len(readByteData) < 4):
+            continue
 
-        ser_bytes = ser.read(msgLen)
+        msgType = readByteData[1]
+        msgLen = readByteData[2]
 
-        #decoded_bytes = ser_bytes.decode("utf-8")
-        #print(ser_bytes[0], ser_bytes[1], ser_bytes[2])
-        # print("MSG:", msgType, "LEN:", msgLen)
-        if msgType == 4:
+        if (msgLen <= 0):
+            readByteData.pop(0)
+            continue
+
+        if (msgLen > len(readByteData) + 3):
+            continue
+
+        ser_bytes = readByteData[3:3 + msgLen]
+
+        #print(msgType, msgLen, len(ser_bytes), len(readByteData) + 3)
+
+        readByteData = readByteData[(3 + msgLen):]
+
+        # Gyro
+        if msgType == 4 and msgGyro.size <= len(ser_bytes):
+
             gyro = msgGyro.unpack(ser_bytes)
-            gyro = (int(gyro[0] / 16.4 * 2), int(gyro[1] / 16.4 * 2),
-                    int(gyro[2] / 16.4 * 2))
-
+            # gyro = (int(gyro[0] / 16.4 * 2), int(gyro[1] / 16.4 * 2),
+            #         int(gyro[2] / 16.4 * 2))
             for i in range(3):
                 gyroData[i].append(gyro[i])
+                gyroFFtData[i].append(gyro[i])
                 if (len(gyroData[i]) > size):
                     gyroData[i].pop(0)
+                    gyroFFtData[i].pop(0)
+                yf = scipy.fftpack.fft(gyroFFtData[i])
+                gyroFftCurves[i].setData(2.0 / size * np.abs(yf[:size // 2]))
 
-                gyroCurves[i].setData(gyroData[i])
-
-            # print(ser_bytes)
-            # gyroline1.set_ydata(gyroData)
-            # plt.pause(pause_time)
-            # print("gyro:  ", gyro)
-        elif msgType == 3:
+        # RX
+        elif msgType == 3 and msgRx.size <= len(ser_bytes):
             rx = msgRx.unpack(ser_bytes)
             rxData.append(rx)
-            # print(ser_bytes)
-            if (len(motorData) > size):
-                rxData.pop(0)
-            # print("rx:    ", rx)
-        elif msgType == 2:
+            for i in range(4):
+                rxData[i].append(rx[i])
+                if (len(rxData[i]) > size):
+                    rxData[i].pop(0)
+
+        # Motors
+        elif msgType == 2 and msgMotor.size <= len(ser_bytes):
             motor = msgMotor.unpack(ser_bytes)
-            motorData.append(motor)
-            if (len(motorData) > size):
-                motorData.pop(0)
-            # print("motor: ", motor)
-        elif msgType == 1:
+            for i in range(4):
+                motorData[i].append(motor[i])
+                if (len(motorData[i]) > size):
+                    motorData[i].pop(0)
+
+        #Inputs
+
+        elif msgType == 1 and msgInput.size <= len(ser_bytes):
             inputs = msgInput.unpack(ser_bytes)
-            # print(ser_bytes)
-            inputData.append(inputs)
-            if (len(inputData) > size):
-                inputData.pop(0)
+            for i in range(4):
+                inputsData[i].append(inputs[i])
+                if (len(inputsData[i]) > size):
+                    inputsData[i].pop(0)
+                # inputsCurves[i].setData(inputsData[i])
 
-            g = last(gyroData)
-            rx = last(rxData)
-            m = last(motorData)
-            inputs = last(inputData)
-            # print("| g:", g, "|\trx:", rx, "|\ti:", inputs, "|\tm:", m,
-            #       ser.in_waiting)
+    for i in range(3):
+        gyroCurves[i].setData(gyroData[i])
 
-    except KeyboardInterrupt:
-        print("Keyboard Interrupt")
-        break
-    except Exception as e:
-        print("error:", e)
-        break
+    for i in range(4):
+        inputsCurves[i].setData(inputsData[i])
+        rxCurves[i].setData(rxData[i])
+        motorCurves[i].setData(motorData[i])
 
-# import datetime as dt
-# import matplotlib.pyplot as plt
-# import matplotlib.animation as animation
-# import tmp102
 
-# # Create figure for plotting
-# fig = plt.figure()
-# ax = fig.add_subplot(1, 1, 1)
-# xs = []
-# ys = []
+t = QtCore.QTimer()
+t.timeout.connect(updateData)
+t.start(1)
 
-# # Initialize communication with TMP102
-# tmp102.init()
-
-# # This function is called periodically from FuncAnimation
-# def animate(i, xs, ys):
-
-#     # Read temperature (Celsius) from TMP102
-#     temp_c = round(tmp102.read_temp(), 2)
-
-#     # Add x and y to lists
-#     xs.append(dt.datetime.now().strftime('%H:%M:%S.%f'))
-#     ys.append(temp_c)
-
-#     # Limit x and y lists to 20 items
-#     xs = xs[-20:]
-#     ys = ys[-20:]
-
-#     # Draw x and y lists
-#     ax.clear()
-#     ax.plot(xs, ys)
-
-#     # Format plot
-#     plt.xticks(rotation=45, ha='right')
-#     plt.subplots_adjust(bottom=0.30)
-#     plt.title('TMP102 Temperature over Time')
-#     plt.ylabel('Temperature (deg C)')
-
-# # Set up plot to call animate() function periodically
-# ani = animation.FuncAnimation(fig, animate, fargs=(xs, ys), interval=1000)
-# plt.show()
+app.exec()
