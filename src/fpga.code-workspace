@@ -2,11 +2,16 @@
   "folders": [
     {
       "path": "/home/john/code/fpga"
+    },
+    {
+      "path": "../../../../captures"
     }
   ],
   "settings": {
     "files.associations": {
       "motor_output_dshot.h": "c"
-    }
+    },
+    "python.condaPath": "/home/john/miniconda3/bin/conda",
+    "python.pythonPath": "/home/john/miniconda3/bin/python"
   }
 }

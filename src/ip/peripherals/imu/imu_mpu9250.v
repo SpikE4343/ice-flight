@@ -11,7 +11,8 @@ module imu_mpu_9250
   parameter FIXED_PRECISION=1000,
   parameter SPI_REG_WORDBITS=16,
   parameter SPI_GYRO_WORDBITS=16*3 + 8,
-  parameter FIXED_WIDTH_BIT=31
+  parameter FIXED_WIDTH_BIT=31,
+  parameter SAMPLE_DEPTH=64
 )
 (
     input CLK, 
@@ -22,9 +23,9 @@ module imu_mpu_9250
     input  MISO, // MISO
     output CS, // CS
 
-    output reg signed [15:0] rates_raw_roll,
-    output reg signed [15:0] rates_raw_pitch,
-    output reg signed [15:0] rates_raw_yaw,
+    output reg signed [31:0] rates_raw_roll,
+    output reg signed [31:0] rates_raw_pitch,
+    output reg signed [31:0] rates_raw_yaw,
     output reg sampleReady
 );
 
@@ -55,8 +56,9 @@ module imu_mpu_9250
   wire [SPI_REG_WORDBITS-1:0] spiRegRxData;
   wire spiRegRx;
 
-  reg [31:0] gyroSampleBuffer [128:0];
-  reg [6:0] sample_write;
+  //reg signed [31:0] gyroSampleBuffer [SAMPLE_DEPTH-1:0];
+  reg [$clog2(SAMPLE_DEPTH)-1:0] sample_write;
+  reg [$clog2(SAMPLE_DEPTH)-1:0] sample_read;
 
   reg [15:0] gyroConfigCmdCount;
   reg [15:0] gyroConfigCmdSentCount;
@@ -89,7 +91,14 @@ module imu_mpu_9250
   reg [7:0] imu_cfg_state;
   reg [7:0] imu_calibration_state;
   reg [7:0] imu_sample_state;
+  integer i;
 
+  localparam SAMPLE_WORDS=744;
+  `ifdef gyro_test_data
+      reg signed [15:0] testSampleData[0:SAMPLE_WORDS-1];
+      reg [8:0] testSampleRead;
+  `endif
+  
   initial begin
     gyroConfigCmds[0] = { `MPU_RA_PWR_MGMT_1, `INV_CLK_PLL };
     gyroConfigCmds[1] = { `MPU_RA_GYRO_CONFIG, `INV_FSR_2000DPS << 3};
@@ -99,9 +108,9 @@ module imu_mpu_9250
     gyroConfigCmds[5] = { `MPU_RA_INT_PIN_CFG, 8'b00010010};
     gyroConfigCmdCount = 6;
 
-    rates_raw_roll = 16'h0000;
-    rates_raw_pitch = 16'h0000;
-    rates_raw_yaw = 16'h0000;
+    rates_raw_roll = 32'h0;
+    rates_raw_pitch = 32'h0;
+    rates_raw_yaw = 32'h0;
 
     gyroOffsets[0] = 16'h0000;
     gyroOffsets[1] = 16'h0000;
@@ -112,6 +121,19 @@ module imu_mpu_9250
     imu_sample_state = IMU_ST_SAMPLE_STOPPED;
     imu_calibration_state = IMU_ST_CALIB_START;
     counter1 = BASE_FREQ / 1000;
+
+    sample_read = 7'd0;
+    sample_write = 7'd0;
+
+//    for(i=0; i < SAMPLE_DEPTH; i=i+1) begin
+//      gyroSampleBuffer[i] = 32'd0;
+//    end
+
+    
+    `ifdef gyro_test_data
+       $readmemh("mem-gyro-1024.txt", testSampleData);
+       testSampleRead = 0;
+    `endif
   end 
 
   // PINS
@@ -125,11 +147,12 @@ module imu_mpu_9250
   wire regOutMOSI;
   wire regOutCS;
 
+  reg spi_out_fast;
+  
   assign SCLK = spi_out_fast ? fastOutSCLK : regOutSCLK;
   assign MOSI = spi_out_fast ? fastOutMOSI : regOutMOSI;
   assign CS = spi_out_fast ? fastOutCS : regOutCS;
   
-  reg spi_out_fast;
   
   spi_master #(
     .WORDBITS(SPI_REG_WORDBITS),
@@ -168,8 +191,8 @@ module imu_mpu_9250
   );
 
 
-  always @(posedge clk) 
-  begin
+  always @(posedge clk) begin
+    
     if( gyroUpdateCounter > 0) 
     begin
       gyroUpdateCounter <= gyroUpdateCounter - 1;
@@ -178,9 +201,7 @@ module imu_mpu_9250
       gyroUpdateCounter <= UPDATE_CLK_TICKS;
       gyro_update <= 1;
     end
-  end
-
-  always @(posedge clk) begin
+    
     case (imu_state)
       IMU_ST_RESET:begin
         if(counter1 == 0)
@@ -309,7 +330,7 @@ module imu_mpu_9250
       IMU_ST_SAMPLE_READ_GYRO_WAIT: 
       begin
         if(spiRx) begin
-          imu_sample_state <= IMU_ST_SAMPLE_IDLE;
+          //imu_sample_state <= IMU_ST_SAMPLE_IDLE;
 
 
           // 7FFF
@@ -321,17 +342,73 @@ module imu_mpu_9250
           // 1111.1111 11111110 00000000 00000000
 
 
+          // 0000 . 1111 | 1111 1111 | 1110 0000 | 0000 0000
+          // 
           // 16.4 
 
           //  F.FF E0 00 0
           // 0.F FF E0 00 
           // { 4'b0, sample, }
-          gyroSampleBuffer[sample_write+7'd2] <= spiRxData[15:0]  >>> (15 + 4);// / 2000 / 16  - gyroOffsets[2]) * -1;// / `GYRO_RATE_SCALAR;
-          gyroSampleBuffer[sample_write+7'd1] <= spiRxData[31:16] >>> (15 + 4);//  - gyroOffsets[1]);// / `GYRO_RATE_SCALAR;
-          gyroSampleBuffer[sample_write]      <= spiRxData[47:32] >>> (15 + 4);//  - gyroOffsets[0])* -1;// / `GYRO_RATE_SCALAR;
-          sample_write <= sample_write + 7'd3;
-          sampleReady <= 1;
+          `ifdef gyro_test_data
+            // gyroSampleBuffer[sample_write] <= -testSampleData[testSampleRead];// / 2000 / 16  - gyroOffsets[2]) * -1;// / `GYRO_RATE_SCALAR;
+
+            // // Pitch
+            // gyroSampleBuffer[sample_write+9'd1] <= testSampleData[testSampleRead+9'd1];//  - gyroOffsets[1]);// / `GYRO_RATE_SCALAR;
+            
+            
+            // gyroSampleBuffer[sample_write+9'd2] <= -testSampleData[testSampleRead+9'd2];
+
+
+            rates_raw_roll <= testSampleData[testSampleRead] <<< 13;
+            rates_raw_pitch <=testSampleData[testSampleRead+9'd1] <<< 13;
+            rates_raw_yaw <= testSampleData[testSampleRead+9'd2] <<< 13;
+
+            testSampleRead <= testSampleRead + 9'd3;
+          `else
+            rates_raw_roll <= { spiRxData[47], spiRxData[47], spiRxData[47], spiRxData[47:32], 13'h0};
+            rates_raw_pitch <= { spiRxData[31], spiRxData[31], spiRxData[31], spiRxData[31:16], 13'h0};
+            rates_raw_yaw <= { spiRxData[15], spiRxData[15], spiRxData[15], spiRxData[15:0], 13'h0};
+
+            // rates_raw_roll <= spiRxData[47:32] <<< 13;
+            // rates_raw_pitch <= spiRxData[31:16] <<< 13;
+            // rates_raw_yaw <= spiRxData[15:0] <<< 13;
+            // Yaw
+            // gyroSampleBuffer[sample_write+9'd2] <= spiRxData[15:0];// / 2000 / 16  - gyroOffsets[2]) * -1;// / `GYRO_RATE_SCALAR;
+
+            // // Pitch
+            // gyroSampleBuffer[sample_write+9'd1] <= spiRxData[31:16];//  - gyroOffsets[1]);// / `GYRO_RATE_SCALAR;
+            
+            // // Roll
+            // gyroSampleBuffer[sample_write]      <= spiRxData[47:32];//  - gyroOffsets[0])* -1;// / `GYRO_RATE_SCALAR;
+          `endif
+          sample_write <= sample_write + 9'd3;
+          imu_sample_state <= 8'd4; // * signal ready
         end
+      end
+
+      4: // * IMU_ST_SAMPLE_READY:
+      begin
+
+//        gyroSampleBuffer[sample_read] <= gyroSampleBuffer[sample_read] <<< 10;
+//        gyroSampleBuffer[sample_read+7'd1] <= gyroSampleBuffer[sample_read+7'd1] <<< 10;
+//        gyroSampleBuffer[sample_read+7'd2] <= gyroSampleBuffer[sample_read+7'd2] <<< 10;
+        
+        // rates_raw_roll <= gyroSampleBuffer[sample_read] <<< 13;
+        // rates_raw_pitch <= gyroSampleBuffer[sample_read+9'd1] <<< 13;
+        // rates_raw_yaw <= gyroSampleBuffer[sample_read+9'd2] <<< 13;
+        sample_read <= sample_read + 9'd3;
+        counter1 <= 8;
+        imu_sample_state  <= 5;
+      end
+
+       5: // * IMU_ST_SAMPLE_READY:
+      begin        
+        if(counter1 == 0) begin
+          imu_sample_state  <= IMU_ST_SAMPLE_IDLE;
+        end
+
+        counter1 = counter1 - 1;
+        sampleReady <= 1;
       end
     endcase
   end

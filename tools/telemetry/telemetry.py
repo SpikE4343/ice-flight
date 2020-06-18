@@ -14,43 +14,31 @@ import scipy.fftpack
 ser = serial.Serial(port='/dev/ttyUSB0', baudrate=2000000, stopbits=1)
 ser.flushInput()
 
-size = 2000
+size = 2048
 pause_time = 0.1
 
-msgGyro = struct.Struct('< h h h')
+msgGyro = struct.Struct('< i i i')
 
 msgRx = struct.Struct('< H H H H H B B')
 msgMotor = struct.Struct('< i i i i')
-msgInput = struct.Struct('< h h h h h')
+msgInput = struct.Struct('< i i i i i')
+msgSetpoint = struct.Struct('< i i i i i')
 
 x = np.arange(size)
 
-gyroData = [list(range(size)), list(range(size)), list(range(size))]
-gyroFFtData = [list(range(size)), list(range(size)), list(range(size))]
-inputsData = [
-    list(range(size)),
-    list(range(size)),
-    list(range(size)),
-    list(range(size))
-]
-motorData = [
-    list(range(size)),
-    list(range(size)),
-    list(range(size)),
-    list(range(size))
-]
-rxData = [
-    list(range(size)),
-    list(range(size)),
-    list(range(size)),
-    list(range(size))
-]
+gyroData = [[0] * size, [0] * size, [0] * size]
+gyroFFtData = [[0] * size, [0] * size, [0] * size]
+
+inputsData = [[0] * size, [0] * size, [0] * size, [0] * size]
+setpointData = [[0] * size, [0] * size, [0] * size, [0] * size]
+motorData = [[0] * size, [0] * size, [0] * size, [0] * size]
+rxData = [[0] * size, [0] * size, [0] * size, [0] * size]
 
 inputData = []
 readByteData = bytearray()
 
-serialBufferData = list(range(size))
-readBufferLenData = list(range(size))
+serialBufferData = [0] * size
+readBufferLenData = [0] * size
 
 app = QtGui.QApplication([])
 mw = QtGui.QMainWindow()
@@ -101,6 +89,15 @@ for i in range(4):
     inputsCurves.append(c)
 
 # RX data
+setpointPlot = pg.PlotWidget(name='Set Point')
+setpointPlot.setLabel('left', 'Set Point', units='deg/s')
+
+setpointCurves = []
+for i in range(4):
+    c = setpointPlot.plot(x, setpointData[i], pen=(i, 4))
+    setpointCurves.append(c)
+
+# RX data
 rxPlot = pg.PlotWidget(name='RX [T,A,E,R]')
 rxPlot.setLabel('left', 'Rx', units='deg/s')
 
@@ -112,20 +109,21 @@ for i in range(4):
 l.addWidget(gyroPlot)
 l.addWidget(gyroFftPlot)
 l.addWidget(rxPlot)
+l.addWidget(setpointPlot)
 l.addWidget(inputsPlot)
 l.addWidget(motorPlot)
 
 #Serial UART
-serialPlot = pg.PlotWidget(name='UART')
-serialPlot.setLabel('left', 'UART', units='byte')
-l.addWidget(serialPlot)
-c = pg.PlotDataItem(x, serialBufferData, pen=(0, 2))
-serialPlot.addItem(c)
-serialCurve = c
+# serialPlot = pg.PlotWidget(name='UART')
+# serialPlot.setLabel('left', 'UART', units='byte')
+# l.addWidget(serialPlot)
+# c = pg.PlotDataItem(x, serialBufferData, pen=(0, 2))
+# serialPlot.addItem(c)
+# serialCurve = c
 
-c = pg.PlotDataItem(x, readBufferLenData, pen=(1, 2))
-serialPlot.addItem(c)
-rbCurve = c
+# c = pg.PlotDataItem(x, readBufferLenData, pen=(1, 2))
+# serialPlot.addItem(c)
+# rbCurve = c
 
 mw.show()
 
@@ -140,11 +138,11 @@ def last(l):
 def updateData():
     global readByteData
 
-    serialBufferData.append(ser.in_waiting)
-    if len(serialBufferData) > size:
-        serialBufferData.pop(0)
+    # serialBufferData.append(ser.in_waiting)
+    # if len(serialBufferData) > size:
+    #     serialBufferData.pop(0)
 
-    serialCurve.setData(serialBufferData)
+    # serialCurve.setData(serialBufferData)
 
     if (ser.in_waiting > 0):
         for d in ser.read(ser.in_waiting):
@@ -154,7 +152,7 @@ def updateData():
     if (len(readBufferLenData) > size):
         readBufferLenData.pop(0)
 
-    rbCurve.setData(readBufferLenData)
+    # rbCurve.setData(readBufferLenData)
 
     count = 0
     while (count < size and len(readByteData) > 0):
@@ -184,15 +182,23 @@ def updateData():
 
         readByteData = readByteData[(3 + msgLen):]
 
+        if msgType == 6 and msgInput.size <= len(ser_bytes):
+            setpoint = msgSetpoint.unpack(ser_bytes)
+            for i in range(4):
+                setpointData[i].append(setpoint[i])
+                if (len(setpointData[i]) > size):
+                    setpointData[i].pop(0)
+                # inputsCurves[i].setData(inputsData[i])
         # Gyro
-        if msgType == 4 and msgGyro.size <= len(ser_bytes):
+        elif msgType == 4 and msgGyro.size <= len(ser_bytes):
 
             gyro = msgGyro.unpack(ser_bytes)
             # gyro = (int(gyro[0] / 16.4 * 2), int(gyro[1] / 16.4 * 2),
             #         int(gyro[2] / 16.4 * 2))
             for i in range(3):
-                gyroData[i].append(gyro[i])
-                gyroFFtData[i].append(gyro[i])
+                #print(i, gyro[i], gyro[i] / (2**28))
+                gyroData[i].append(gyro[i] / (2**28))
+                gyroFFtData[i].append(gyro[i] / (2**28))
                 if (len(gyroData[i]) > size):
                     gyroData[i].pop(0)
                     gyroFFtData[i].pop(0)
@@ -230,6 +236,7 @@ def updateData():
         gyroCurves[i].setData(gyroData[i])
 
     for i in range(4):
+        setpointCurves[i].setData(setpointData[i])
         inputsCurves[i].setData(inputsData[i])
         rxCurves[i].setData(rxData[i])
         motorCurves[i].setData(motorData[i])

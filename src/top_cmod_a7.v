@@ -48,7 +48,7 @@ module top_cmod_a7(
   cmod_a7_clk main_clock
   (
   .clk_out1(clk_100mhz),           
-  .reset(reset), 
+  .reset(btn0), 
   .locked(locked),
   .clk_in1(sysclk)
   );

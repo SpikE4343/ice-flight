@@ -3,8 +3,8 @@
 // Purpose: Verilog Simulation Example
 // Test Bench
 //-----------------------------------------------------------
-`timescale 1 ns / 10 ps
-
+`timescale 1 ns / 1 ps
+`define gyro_test_data 1
 
 module flight__tb;
  //---------------------------------------------------------
@@ -15,8 +15,10 @@ module flight__tb;
  //localparam FILESIZE=76240;
  //localparam FILESIZE=10208;
  //localparam FILESIZE=1396;
- localparam FILESIZE=1393;
+ localparam FILESIZE=16'd15888;
  //localparam FILESIZE=30;
+
+
 
  //---------------------------------------------------------
  // inputs to the DUT are reg type
@@ -24,11 +26,11 @@ module flight__tb;
  reg rst;
  //--------------------------------------------------------
  // outputs from the DUT are wire type
- reg [16:0] dataIndex;
+ reg [15:0] dataIndex;
  reg [7:0] msgData[0:FILESIZE-1];
  reg dataReady;
  
- localparam BASE_FREQ = 100_000_000;
+ localparam BASE_FREQ = 10_000_000;
  
 // Gyro SPI
   wire MISO;
@@ -45,6 +47,7 @@ module flight__tb;
   wire motor2;
   wire motor3;
   wire motor4;
+  wire rx_send_done;
 
   uart_tx #(
     .CLKS_PER_BIT(BASE_FREQ/115200)
@@ -52,7 +55,8 @@ module flight__tb;
     .clock(clk_50),
     .send(dataReady),
     .txIn(rxData),
-    .txOut(rcRxIn)
+    .txOut(rcRxIn),
+    .sendComplete(rx_send_done)
     );
 
   wire debug_signal;
@@ -68,8 +72,7 @@ module flight__tb;
     );
 
  flight #(
-    .BASE_FREQ(BASE_FREQ),
-   .FIXED_WIDTH_BIT(`FIXED_WIDTH_BIT)
+    .BASE_FREQ(BASE_FREQ)
  ) dut (
    .CLK(clk_50),
    .RX_IN(~rcRxIn),
@@ -116,15 +119,26 @@ module flight__tb;
     //$readmemh("rxsr-throttle.txt", msgData);
     //$readmemh("rxsr-throttle-1040.txt", msgData);
     //$readmemh("../captures/rxsr-throttle-1408-hr.txt", msgData);
-    $readmemh("rxsr-throttle-1408-hr.txt", msgData);
-
+    //$readmemh("rxsr-throttle-1408-hr.txt", msgData);
+    $readmemh("rxsr-r-p-sweep.txt", msgData);
+    
     clk_50 = 1'b0;
     while (dataIndex < FILESIZE) begin
       
-      #78000 rxData = msgData[dataIndex];
-           dataIndex = dataIndex + 1;
-           dataReady = 1;
-      #2   dataReady = 0;
+      //#78000 rxData = msgData[dataIndex];
+      #100 rxData = msgData[dataIndex];
+       dataIndex = dataIndex + 1;
+       dataReady = 1;
+           
+       #5 while(rx_send_done != 0) 
+        #1 dataReady = 0;
+        
+        // started sending
+       while(rx_send_done == 0) 
+        #1 dataReady = 0;
+        
+      
+     
 
     end
     // at time 0

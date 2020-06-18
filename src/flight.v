@@ -10,15 +10,22 @@ module flight
 #(
   parameter BASE_FREQ=16_000_000,
   
+// `ifdef gyro_test_data
+//  parameter FPORT_UART_BAUD=200_000,
+//  parameter MOTOR_UPDATE_HZ=10_000,
+//  parameter GYRO_UPDATE_HZ=50_000,
+// `else
   parameter FPORT_UART_BAUD=115200,
-  
   parameter MOTOR_UPDATE_HZ=1000,
+  parameter GYRO_UPDATE_HZ=32_000,
+// `endif
+  
   
   parameter DSHOT_150_FREQ=150_000,
   parameter DSHOT_300_FREQ=300_000,
   parameter DSHOT_600_FREQ=600_000,
 
-  parameter GYRO_UPDATE_HZ=32_000,
+  
   parameter GYRO_SPI_REG_FREQ=1_000_000,
   parameter GYRO_SPI_UPDATE_FREQ=4_000_000,
   
@@ -72,20 +79,19 @@ module flight
   reg motor_send;
   
   reg signed [31:0] motorThrottle[3:0];
+  wire signed [31:0] mixedThrottle[3:0];
 
   wire [10:0] controlInputs[4:0];
 
   reg signed [31:0] setpoint[4:0];
   reg signed [31:0] inputs[4:0];
-  reg signed [31:0] attitude[4:0];
+  reg signed [31:0] attitude[2:0];
 
-  // First index should be motor count define
-  reg signed [31:0] motorMix[3:0][3:0];
 
   reg signed [31:0] pid_gains[3:0][3:0];
 
 
-  wire signed [15:0] gyro_rates_raw[2:0];
+  wire signed [31:0] gyro_rates_raw[2:0];
   reg signed [31:0] gyro_rates_sampled[2:0];
 
   // RX Controls
@@ -133,12 +139,16 @@ module flight
   localparam DEBUG_ST_SEND   = 3;
   localparam DEBUG_ST_LOAD   = 4;
 
+  localparam DEBUG_SEND_SETPOINT = 6;
   localparam DEBUG_SEND_STATUS   = 5;
   localparam DEBUG_SEND_GYRO     = 4;
   localparam DEBUG_SEND_RX       = 3;
   localparam DEBUG_SEND_MOTOR    = 2;
   localparam DEBUG_SEND_ATTITUDE = 1;
   localparam DEBUG_SEND_COMPLETE = 0;
+
+  localparam DSHOT_MIN = 32'sd48;
+  localparam DSHOT_MAX = 32'sd2047;
 
   localparam P_TERM = 0;
   localparam I_TERM = 1;
@@ -153,6 +163,10 @@ module flight
   reg update_attitude;
   reg change_update_state;
 
+  reg useGyro;
+
+  localparam MAX_WAIT = 1023;
+  reg [15:0] waitCount;
 
   //   static uint16_t sbusChannelsReadRawRC(const rxRuntimeState_t *rxRuntimeState, uint8_t chan)
   // {
@@ -162,85 +176,31 @@ module flight
   //}
 
   // sbus/fport rc range is from 192 - 1792 
-  // output range is -2000 - 2000
+  // output range is -1 - 1 : Q3.28
   function automatic signed [31:0] RxRangeInput;
     input [10:0] inputValue;
     begin
-      RxRangeInput = ((32'd5 * inputValue >>> 3) - 32'd620) <<< 19;
+      RxRangeInput = (((32'sd5 * inputValue) >>> 3) - 32'sd620) <<< 19;
     end
   endfunction
 
-  function automatic signed [31:0] MotorThrottleValue;
-    input [3:0] index;
-    reg signed [31:0] throttle;
-    reg signed [63:0] temp;
-    begin
-      throttle = 32'd0;
-      if( armed ) begin
-        temp = (motorMix[index][INPUT_ROLL]) * inputs[INPUT_ROLL];
-        throttle = throttle + (temp >>> 28);
-
-        temp = (motorMix[index][INPUT_PITCH]) * inputs[INPUT_PITCH];
-        throttle = throttle + (temp >>> 28);
-
-        temp = (motorMix[index][INPUT_YAW]) * inputs[INPUT_YAW];
-        throttle = throttle + (temp >>> 28);
-
-        temp = (motorMix[index][INPUT_THROTTLE]) * inputs[INPUT_THROTTLE];
-        throttle = throttle + (temp >>> 28);
-        
-        // (throttle + 1) / 2
-        throttle = (throttle + 31'h10_00_00_00) >> 1;
-
-
-        
-        // temp = throttle <<< 11;
-        // throttle = throttle >>> 28;
-        // 28 - 11 = 17
-        throttle = throttle >>> 17;
-
-      end else begin
-        throttle = 0;
-      end
-
-      MotorThrottleValue = throttle;
-    end
-  endfunction
 
   function automatic signed [31:0] PID;
     input [3:0] index;
     reg signed [31:0] error;
     reg signed [63:0] mul;
     begin
-      error = gyro_rates_sampled[index-1] - setpoint[index];
-      mul = error * pid_gains[index][P_TERM];
-      attitude[index] =  mul >>> 28;
-      inputs[index] = attitude[index];
-      PID = inputs[index];
-    end
-  endfunction
-  
-  function automatic [3:0] MaxThrottle;
-    input v;
-    reg [3:0] a;
-    reg [3:0] b;
-    begin
-      a = (motorThrottle[0] > motorThrottle[1]) ? 0 : 1;
-      b = motorThrottle[2] > motorThrottle[3] ? 2 : 3;
-      MaxThrottle = motorThrottle[a] > motorThrottle[b] ? a : b;
+      if(useGyro) begin
+        error = gyro_rates_sampled[index-1] - setpoint[index];
+        mul = error * pid_gains[index][P_TERM];
+        attitude[index-1] =  mul >>> 28;
+        PID = attitude[index-1];
+      end else begin
+        PID = setpoint[index];
+      end
     end
   endfunction
 
-  function automatic [3:0] MinThrottle;
-    input v;
-    reg [3:0] a;
-    reg [3:0] b;
-    begin
-      a = (motorThrottle[0] < motorThrottle[1]) ? 0 : 1;
-      b = motorThrottle[2] < motorThrottle[3] ? 2 : 3;
-      MinThrottle = motorThrottle[a] < motorThrottle[b] ? a : b;
-    end
-  endfunction
   
   // Motor index layout, up is forward
   //  3 ^ 1
@@ -248,25 +208,7 @@ module flight
   //  2   0
 
   initial begin
-    motorMix[0][INPUT_THROTTLE] = 1 <<< 28;
-    motorMix[0][INPUT_ROLL] = 1 <<< 28;
-    motorMix[0][INPUT_PITCH] = -1 <<< 28;
-    motorMix[0][INPUT_YAW] = -1 <<< 28;
-
-    motorMix[1][INPUT_THROTTLE] = 1 <<< 28;
-    motorMix[1][INPUT_ROLL] = 1 <<< 28;
-    motorMix[1][INPUT_PITCH] = 1 <<< 28;
-    motorMix[1][INPUT_YAW] = 1 <<< 28;
-
-    motorMix[2][INPUT_THROTTLE] = 1 <<< 28;
-    motorMix[2][INPUT_ROLL] = -1 <<< 28;
-    motorMix[2][INPUT_PITCH]= -1 <<< 28;
-    motorMix[2][INPUT_YAW] =1 <<< 28;
-
-    motorMix[3][INPUT_THROTTLE] = 1 <<< 28;
-    motorMix[3][INPUT_ROLL] = -1 <<< 28;
-    motorMix[3][INPUT_PITCH] = 1 <<< 28;
-    motorMix[3][INPUT_YAW] = -1 <<< 28;
+   
 
     pid_gains[INPUT_ROLL][P_TERM] = 1 <<< 28;
     pid_gains[INPUT_ROLL][I_TERM] = 0 <<< 28;
@@ -283,19 +225,26 @@ module flight
     pid_gains[INPUT_YAW][D_TERM] = 0 <<< 28;
     pid_gains[INPUT_YAW][F_TERM] = 0 <<< 28;
 
+
+    pid_gains[INPUT_THROTTLE][P_TERM] = 0;
+    pid_gains[INPUT_THROTTLE][I_TERM] = 0;
+    pid_gains[INPUT_THROTTLE][D_TERM] = 0;
+    pid_gains[INPUT_THROTTLE][F_TERM] = 0;
+    
+
     debugState = DEBUG_ST_RESET;
     debugUpdateCount = DEBUG_SEND_CLK_TICKS;
-    gyro_rates_sampled[0] = 16'h0;
-    gyro_rates_sampled[1] = 16'h0;
-    gyro_rates_sampled[2] = 16'h0;
+    gyro_rates_sampled[0] = 32'h0;
+    gyro_rates_sampled[1] = 32'h0;
+    gyro_rates_sampled[2] = 32'h0;
     
+    useGyro = 0;
     
-    
-    setpoint[INPUT_THROTTLE] = -32'd2000;
+    setpoint[INPUT_THROTTLE] = -1 <<< 28;
     setpoint[INPUT_ROLL] = 32'd0;
     setpoint[INPUT_PITCH] = 32'd0;
     setpoint[INPUT_YAW] = 32'd0;
-    setpoint[4] = -32'd2000;
+    setpoint[4] = -1 <<< 28;
 
     inputs[0] = 32'h0;
     inputs[1] = 32'h0;
@@ -303,10 +252,11 @@ module flight
     inputs[3] = 32'h0;
     inputs[4] = 32'h0;
     
-    fc_state = ST_RESET;
+    fc_state = 0;
     change_update_state = 1;
     update_attitude = 0;
     attitudeUpdateCounter = 8'h0;
+    waitCount = 0;
   end
 
   // PINS
@@ -318,9 +268,11 @@ module flight
 
   assign armed = 1;//controlInputs[0] > 0;
   assign LED_ARMED = controls_ready | rx_data_ready;
-  assign LED_STATUS = failsafe | rxFrameLoss;
+  assign LED_STATUS = useGyro;//failsafe | rxFrameLoss;
   
-  assign reset = btn1;
+  assign reset = btn0;
+
+    integer i;
   
   
 
@@ -333,20 +285,21 @@ module flight
   localparam ST_APPLY_UPDATES = 6;
   
 
-  // * Sample Gyro State
-  always @(posedge gyroSampleReady) begin
-    gyro_rates_sampled[0] <= gyro_rates_raw[0];// + gyro_rates_sampled[0]) >> 1;
-    gyro_rates_sampled[1] <= gyro_rates_raw[1];// + gyro_rates_sampled[1]) >> 1;
-    gyro_rates_sampled[2] <= gyro_rates_raw[2];// + gyro_rates_sampled[2]) >> 1;
+  // // * Sample Gyro State
+  // always @(posedge gyroSampleReady) begin
+  //   gyro_rates_sampled[0] <= gyro_rates_raw[0];// + gyro_rates_sampled[0]) >> 1;
+  //   gyro_rates_sampled[1] <= gyro_rates_raw[1];// + gyro_rates_sampled[1]) >> 1;
+  //   gyro_rates_sampled[2] <= gyro_rates_raw[2];// + gyro_rates_sampled[2]) >> 1;
 
     
-    if(attitudeUpdateCounter == 8'h0) begin
-      attitudeUpdateCounter <= (GYRO_UPDATE_HZ / MOTOR_UPDATE_HZ) -1;
-      update_attitude <= ~update_attitude;
-    end else begin
-      attitudeUpdateCounter <= attitudeUpdateCounter - 1;
-    end
-  end
+  //   if(attitudeUpdateCounter == 8'h0) begin
+  //     attitudeUpdateCounter <= (GYRO_UPDATE_HZ / MOTOR_UPDATE_HZ) -1;
+  //     update_attitude <= ~update_attitude;
+  //   end else begin
+  //     attitudeUpdateCounter <= attitudeUpdateCounter - 1;
+  //   end`  
+  // end
+
 
   // * Main Loop: process gyro, rx, and attitude data to update motor controls
   always @(posedge clk) begin
@@ -372,37 +325,39 @@ module flight
         if(change_update_state != update_attitude) begin
             change_update_state <= update_attitude;
             fc_state <= ST_UPDATE_ATTITUDE;
+            waitCount <= MAX_WAIT;
         end
       end
 
       ST_UPDATE_ATTITUDE: begin
-        inputs[INPUT_ROLL]  <= PID(INPUT_ROLL);
-        inputs[INPUT_PITCH] <= PID(INPUT_PITCH);
-        inputs[INPUT_YAW]   <= PID(INPUT_YAW);
-        inputs[INPUT_THROTTLE] <= setpoint[INPUT_THROTTLE];
-        fc_state <= ST_UPDATE_MOTOR_MIX;
+          inputs[INPUT_ROLL]  <= PID(INPUT_ROLL);
+          inputs[INPUT_PITCH] <= PID(INPUT_PITCH);
+          inputs[INPUT_YAW]   <= PID(INPUT_YAW);
+          inputs[INPUT_THROTTLE] <= setpoint[INPUT_THROTTLE];
+          fc_state <= ST_UPDATE_MOTOR_MIX;
       end
 
-      ST_UPDATE_MOTOR_MIX: begin
-        motorThrottle[0] <= MotorThrottleValue(0);
-        motorThrottle[1] <= MotorThrottleValue(1);
-        motorThrottle[2] <= MotorThrottleValue(2);
-        motorThrottle[3] <= MotorThrottleValue(3);
-        
+      ST_UPDATE_MOTOR_MIX:
+      begin
         fc_state <= ST_MOTOR_SATURATION;
       end
 
       ST_MOTOR_SATURATION: begin
-          
+        // Clamp for now
+        for(i = 0; i < 4; i = i  + 1) begin
+            motorThrottle[i] <= (mixedThrottle[i] + 32'sh10_00_00_00) >>> 18;
+        end
+        
         fc_state <= ST_CLEAN_MOTOR_OUTPUTS;
       end
 
       ST_CLEAN_MOTOR_OUTPUTS: begin
-        // rescale saturated motors
-        // motorThrottle[0] <= motorThrottle[0] < 32'sd0 ? 32'sd0 : (motorThrottle[0] > 32'sd2047 ? 32'sd2047 : motorThrottle[0]);
-        // motorThrottle[1] <= motorThrottle[1] < 32'sd0 ? 32'sd0 : (motorThrottle[1] > 32'sd2047 ? 32'sd2047 : motorThrottle[1]);
-        // motorThrottle[2] <= motorThrottle[2] < 32'sd0 ? 32'sd0 : (motorThrottle[2] > 32'sd2047 ? 32'sd2047 : motorThrottle[2]);
-        // motorThrottle[3] <= motorThrottle[3] < 32'sd0 ? 32'sd0 : (motorThrottle[3] > 32'sd2047 ? 32'sd2047 : motorThrottle[3]);
+        
+          for(i = 0; i < 4; i = i  + 1) begin
+            motorThrottle[i] <= motorThrottle[i] < 32'sh0 ? 32'sh0 : 
+              ( motorThrottle[i] > 32'sd2047 ? 32'sd2047 : motorThrottle[i]);
+          end
+        
       
         fc_state <= ST_APPLY_UPDATES;
       end
@@ -417,7 +372,7 @@ module flight
       end
     endcase
     
-     case(debugState)
+    case(debugState)
       DEBUG_ST_RESET: begin
         debugState <= DEBUG_ST_WAIT;
         debugUpdateCount <= DEBUG_SEND_CLK_TICKS;
@@ -477,24 +432,41 @@ module flight
             debug_msg_type <= `MSG_TYPE_TELEMETRY_STATUS;
             debug_msg_length <= `MSG_LEN_TELEMETRY_STATUS;
           end
+
+          DEBUG_SEND_SETPOINT: 
+          begin
+            debug_msg_type <= `MSG_TYPE_TELEMETRY_SETPOINT;
+            debug_msg_length <= `MSG_LEN_TELEMETRY_SETPOINT;
+          end
         endcase
 
         debug_msg_send <= 1;
         debugState <= DEBUG_ST_LOAD;
       end
     endcase
-  end
 
-  // * Update RX control inputs
-  always @(posedge controls_ready) begin
-    setpoint[INPUT_THROTTLE] <= RxRangeInput(controlInputs[INPUT_THROTTLE]);
-    setpoint[INPUT_ROLL] <= -1 * RxRangeInput(controlInputs[INPUT_ROLL]);
-    setpoint[INPUT_PITCH] <= -1 * RxRangeInput(controlInputs[INPUT_PITCH]);
-    setpoint[INPUT_YAW] <= RxRangeInput(controlInputs[INPUT_YAW]);
-  end
+    // * Update RX control inputs
+    if(controls_ready) begin
+      setpoint[INPUT_THROTTLE] <= RxRangeInput(controlInputs[INPUT_THROTTLE]);
+      setpoint[INPUT_ROLL] <= RxRangeInput(controlInputs[INPUT_ROLL]);
+      setpoint[INPUT_PITCH] <= RxRangeInput(controlInputs[INPUT_PITCH]);
+      setpoint[INPUT_YAW] <= RxRangeInput(controlInputs[INPUT_YAW]);
+    end
 
-  // * Debug Protocol message data loader
-  always @(posedge w_debug_msg_data_load) begin
+    if(gyroSampleReady) begin
+      gyro_rates_sampled[0] <= gyro_rates_raw[0];// + gyro_rates_sampled[0]) >> 1;
+      gyro_rates_sampled[1] <= gyro_rates_raw[1];// + gyro_rates_sampled[1]) >> 1;
+      gyro_rates_sampled[2] <= gyro_rates_raw[2];// + gyro_rates_sampled[2]) >> 1;
+
+      if(attitudeUpdateCounter == 8'h0) begin
+        attitudeUpdateCounter <= (GYRO_UPDATE_HZ / MOTOR_UPDATE_HZ) -1;
+        update_attitude <= ~update_attitude;
+      end else begin
+        attitudeUpdateCounter <= attitudeUpdateCounter - 1;
+      end  
+    end
+    
+    if( w_debug_msg_data_load) begin
     case (debugSendState)
        DEBUG_SEND_STATUS: 
       begin
@@ -511,16 +483,22 @@ module flight
       begin
         case(w_debug_msg_data_index)
           // * Roll
-          8'd0: debug_msg_data <= gyro_rates_sampled[0][7:0];
-          8'd1: debug_msg_data <= gyro_rates_sampled[0][15:8];
+          8'd00: debug_msg_data <= gyro_rates_sampled[0][7:0];
+          8'd01: debug_msg_data <= gyro_rates_sampled[0][15:8];
+          8'd02: debug_msg_data <= gyro_rates_sampled[0][23:16];
+          8'd03: debug_msg_data <= gyro_rates_sampled[0][31:24];
 
           // * Pitch
-          8'd2: debug_msg_data <= gyro_rates_sampled[1][7:0];
-          8'd3: debug_msg_data <= gyro_rates_sampled[1][15:8];
+          8'd04: debug_msg_data <= gyro_rates_sampled[1][7:0];
+          8'd05: debug_msg_data <= gyro_rates_sampled[1][15:8];
+          8'd06: debug_msg_data <= gyro_rates_sampled[1][23:16];
+          8'd07: debug_msg_data <= gyro_rates_sampled[1][31:24];
 
           // * Yaw
-          8'd4: debug_msg_data <= gyro_rates_sampled[2][7:0];
-          8'd5: debug_msg_data <= gyro_rates_sampled[2][15:8];
+          8'd08: debug_msg_data <= gyro_rates_sampled[2][7:0];
+          8'd09: debug_msg_data <= gyro_rates_sampled[2][15:8];
+          8'd10: debug_msg_data <= gyro_rates_sampled[2][23:16];
+          8'd11: debug_msg_data <= gyro_rates_sampled[2][31:24];
 
         endcase
       end
@@ -589,23 +567,76 @@ module flight
           // * Control Inputs with rates applied
           8'd0: debug_msg_data <= inputs[0][7:0];
           8'd1: debug_msg_data <= inputs[0][15:8];
+          8'd2: debug_msg_data <= inputs[0][23:16];
+          8'd3: debug_msg_data <= inputs[0][31:24];
 
-          8'd2: debug_msg_data <= inputs[1][7:0];
-          8'd3: debug_msg_data <= inputs[1][15:8];
+          8'd04: debug_msg_data <= inputs[1][7:0];
+          8'd05: debug_msg_data <= inputs[1][15:8];
+          8'd06: debug_msg_data <= inputs[1][23:16];
+          8'd07: debug_msg_data <= inputs[1][31:24];
 
-          8'd4: debug_msg_data <= inputs[2][7:0];
-          8'd5: debug_msg_data <= inputs[2][15:8];
+          8'd08: debug_msg_data <= inputs[2][7:0];
+          8'd09: debug_msg_data <= inputs[2][15:8];
+          8'd10: debug_msg_data <= inputs[2][23:16];
+          8'd11: debug_msg_data <= inputs[2][31:24];
 
-          8'd6: debug_msg_data <= inputs[3][7:0];
-          8'd7: debug_msg_data <= inputs[3][15:8];
+          8'd12: debug_msg_data <= inputs[3][7:0];
+          8'd13: debug_msg_data <= inputs[3][15:8];
+          8'd14: debug_msg_data <= inputs[3][23:16];
+          8'd15: debug_msg_data <= inputs[3][31:24];
 
-          8'd6: debug_msg_data <= inputs[4][7:0];
-          8'd7: debug_msg_data <= inputs[4][15:8];
+          8'd16: debug_msg_data <= inputs[4][7:0];
+          8'd17: debug_msg_data <= inputs[4][15:8];
+          8'd18: debug_msg_data <= inputs[4][23:16];
+          8'd19: debug_msg_data <= inputs[4][31:24];
+        endcase
+      end
+
+      DEBUG_SEND_SETPOINT: begin
+        case(w_debug_msg_data_index)
+          // * Control Inputs with rates applied
+          8'd0: debug_msg_data <= setpoint[0][7:0];
+          8'd1: debug_msg_data <= setpoint[0][15:8];
+          8'd2: debug_msg_data <= setpoint[0][23:16];
+          8'd3: debug_msg_data <= setpoint[0][31:24];
+
+          8'd04: debug_msg_data <= setpoint[1][7:0];
+          8'd05: debug_msg_data <= setpoint[1][15:8];
+          8'd06: debug_msg_data <= setpoint[1][23:16];
+          8'd07: debug_msg_data <= setpoint[1][31:24];
+
+          8'd08: debug_msg_data <= setpoint[2][7:0];
+          8'd09: debug_msg_data <= setpoint[2][15:8];
+          8'd10: debug_msg_data <= setpoint[2][23:16];
+          8'd11: debug_msg_data <= setpoint[2][31:24];
+
+          8'd12: debug_msg_data <= setpoint[3][7:0];
+          8'd13: debug_msg_data <= setpoint[3][15:8];
+          8'd14: debug_msg_data <= setpoint[3][23:16];
+          8'd15: debug_msg_data <= setpoint[3][31:24];
+
+          8'd16: debug_msg_data <= setpoint[4][7:0];
+          8'd17: debug_msg_data <= setpoint[4][15:8];
+          8'd18: debug_msg_data <= setpoint[4][23:16];
+          8'd19: debug_msg_data <= setpoint[4][31:24];
         endcase
       end
     endcase
   end
 
+
+  end
+
+  // // * Update RX control inputs
+  // always @(posedge controls_ready) begin
+  //   setpoint[INPUT_THROTTLE] <= RxRangeInput(controlInputs[INPUT_THROTTLE]);
+  //   setpoint[INPUT_ROLL] <= RxRangeInput(controlInputs[INPUT_ROLL]);
+  //   setpoint[INPUT_PITCH] <= RxRangeInput(controlInputs[INPUT_PITCH]);
+  //   setpoint[INPUT_YAW] <= RxRangeInput(controlInputs[INPUT_YAW]);
+  // end
+
+  // * Debug Protocol message data loader
+  
   //========================================
   // * Debug UART
   //========================================
@@ -692,13 +723,103 @@ module flight
     .controls3(controlInputs[3]),
     .controls4(controlInputs[4])
   );
-  
+
+  // ** Motor 1 Mixer
+  localparam motorMix_0_INPUT_THROTTLE = 1 <<< 28;
+  localparam motorMix_0_INPUT_ROLL = 1 <<< 28;
+  localparam motorMix_0_INPUT_PITCH = -1 <<< 28;
+  localparam motorMix_0_INPUT_YAW = -1 <<< 28;
+
+  motor_mixer #(
+    .MOTOR_INDEX(0),
+    .ROLL_MIX(motorMix_0_INPUT_ROLL),
+    .PITCH_MIX(motorMix_0_INPUT_PITCH),
+    .YAW_MIX(motorMix_0_INPUT_YAW),
+    .THROTTLE_MIX(motorMix_0_INPUT_THROTTLE)
+  ) motorMixer1 (
+    .armed(armed),
+    .failsafe(failsafe),
+    .inputs_roll(inputs[INPUT_ROLL]),
+    .inputs_pitch(inputs[INPUT_PITCH]),
+    .inputs_yaw(inputs[INPUT_YAW]),
+    .inputs_throttle(inputs[INPUT_THROTTLE]),
+    .mixedThrottle(mixedThrottle[0])
+  );
+
+
+  // ** Motor 2 Mixer
+  localparam motorMix_1_INPUT_THROTTLE = 1 <<< 28;
+  localparam motorMix_1_INPUT_ROLL = 1 <<< 28;
+  localparam motorMix_1_INPUT_PITCH = 1 <<< 28;
+  localparam motorMix_1_INPUT_YAW = 1 <<< 28;
+
+  motor_mixer #(
+    .MOTOR_INDEX(1),
+    .ROLL_MIX(motorMix_1_INPUT_ROLL),
+    .PITCH_MIX(motorMix_1_INPUT_PITCH),
+    .YAW_MIX(motorMix_1_INPUT_YAW),
+    .THROTTLE_MIX(motorMix_1_INPUT_THROTTLE)
+  ) motorMixer2 (
+    .armed(armed),
+    .failsafe(failsafe),
+    .inputs_roll(inputs[INPUT_ROLL]),
+    .inputs_pitch(inputs[INPUT_PITCH]),
+    .inputs_yaw(inputs[INPUT_YAW]),
+    .inputs_throttle(inputs[INPUT_THROTTLE]),
+    .mixedThrottle(mixedThrottle[1])
+  );
+
+  // ** Motor 3 Mixer
+  localparam motorMix_2_INPUT_THROTTLE = 1 <<< 28;
+  localparam motorMix_2_INPUT_ROLL = -1 <<< 28;
+  localparam motorMix_2_INPUT_PITCH = -1 <<< 28;
+  localparam motorMix_2_INPUT_YAW =1 <<< 28;
+
+  motor_mixer #(
+    .MOTOR_INDEX(2),
+    .ROLL_MIX(motorMix_2_INPUT_ROLL),
+    .PITCH_MIX(motorMix_2_INPUT_PITCH),
+    .YAW_MIX(motorMix_2_INPUT_YAW),
+    .THROTTLE_MIX(motorMix_2_INPUT_THROTTLE)
+  ) motorMixer3 (
+    .armed(armed),
+    .failsafe(failsafe),
+    .inputs_roll(inputs[INPUT_ROLL]),
+    .inputs_pitch(inputs[INPUT_PITCH]),
+    .inputs_yaw(inputs[INPUT_YAW]),
+    .inputs_throttle(inputs[INPUT_THROTTLE]),
+    .mixedThrottle(mixedThrottle[2])
+  );
+
+  // ** Motor 3 Mixer
+  localparam motorMix_3_INPUT_THROTTLE = 1 <<< 28;
+  localparam motorMix_3_INPUT_ROLL = -1 <<< 28;
+  localparam motorMix_3_INPUT_PITCH = 1 <<< 28;
+  localparam motorMix_3_INPUT_YAW = -1 <<< 28;
+
+  motor_mixer #(
+    .MOTOR_INDEX(3),
+    .ROLL_MIX(motorMix_3_INPUT_ROLL),
+    .PITCH_MIX(motorMix_3_INPUT_PITCH),
+    .YAW_MIX(motorMix_3_INPUT_YAW),
+    .THROTTLE_MIX(motorMix_3_INPUT_THROTTLE)
+  ) motorMixer4 (
+    .armed(armed),
+    .failsafe(failsafe),
+    .inputs_roll(inputs[INPUT_ROLL]),
+    .inputs_pitch(inputs[INPUT_PITCH]),
+    .inputs_yaw(inputs[INPUT_YAW]),
+    .inputs_throttle(inputs[INPUT_THROTTLE]),
+    .mixedThrottle(mixedThrottle[3])
+  );
+
+
   // * TODO: merge motor control into single 
   // *  module with multiple channels, one for each motor.
   // * This should save some register space since all outputs 
   // *  can be managed with a single counter/alarm pair
   //========================================
-  // * Motor 1
+  // * Motor 1 Output
   //========================================
   motor_control #(
     .BASE_FREQ(BASE_FREQ),
@@ -711,7 +832,7 @@ module flight
   );
 
   //========================================
-  // * Motor 2
+  // * Motor 2 Output
   //========================================
   motor_control #(
     .BASE_FREQ(BASE_FREQ),
@@ -724,7 +845,7 @@ module flight
   );
 
   //========================================
-  // * Motor 3
+  // * Motor 3 Output
   //========================================
   motor_control #(
     .BASE_FREQ(BASE_FREQ),
@@ -737,7 +858,7 @@ module flight
   );
 
   //========================================
-  // * Motor 4
+  // * Motor 4 Output
   //========================================
   motor_control #(
     .BASE_FREQ(BASE_FREQ),

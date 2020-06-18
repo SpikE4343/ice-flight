@@ -11,46 +11,18 @@
       </db_ref>
    </db_ref_list>
    <zoom_setting>
-      <ZoomStartTime time="1209468333fs"></ZoomStartTime>
-      <ZoomEndTime time="1871468334fs"></ZoomEndTime>
-      <Cursor1Time time="1761135000fs"></Cursor1Time>
+      <ZoomStartTime time="846460333fs"></ZoomStartTime>
+      <ZoomEndTime time="1064202334fs"></ZoomEndTime>
+      <Cursor1Time time="1027912000fs"></Cursor1Time>
    </zoom_setting>
    <column_width_setting>
-      <NameColumnWidth column_width="175"></NameColumnWidth>
-      <ValueColumnWidth column_width="75"></ValueColumnWidth>
+      <NameColumnWidth column_width="177"></NameColumnWidth>
+      <ValueColumnWidth column_width="116"></ValueColumnWidth>
    </column_width_setting>
-   <WVObjectSize size="34" />
-   <wvobject type="logic" fp_name="/flight__tb/clk_50">
-      <obj_property name="ElementShortName">clk_50</obj_property>
-      <obj_property name="ObjectShortName">clk_50</obj_property>
-   </wvobject>
-   <wvobject type="logic" fp_name="/flight__tb/MISO">
-      <obj_property name="ElementShortName">MISO</obj_property>
-      <obj_property name="ObjectShortName">MISO</obj_property>
-   </wvobject>
-   <wvobject type="logic" fp_name="/flight__tb/MOSI">
-      <obj_property name="ElementShortName">MOSI</obj_property>
-      <obj_property name="ObjectShortName">MOSI</obj_property>
-   </wvobject>
-   <wvobject type="logic" fp_name="/flight__tb/SCLK">
-      <obj_property name="ElementShortName">SCLK</obj_property>
-      <obj_property name="ObjectShortName">SCLK</obj_property>
-   </wvobject>
-   <wvobject type="logic" fp_name="/flight__tb/CS">
-      <obj_property name="ElementShortName">CS</obj_property>
-      <obj_property name="ObjectShortName">CS</obj_property>
-   </wvobject>
-   <wvobject type="logic" fp_name="/flight__tb/rcRxIn">
-      <obj_property name="ElementShortName">rcRxIn</obj_property>
-      <obj_property name="ObjectShortName">rcRxIn</obj_property>
-   </wvobject>
-   <wvobject type="array" fp_name="/flight__tb/rxData">
-      <obj_property name="ElementShortName">rxData[7:0]</obj_property>
-      <obj_property name="ObjectShortName">rxData[7:0]</obj_property>
-   </wvobject>
-   <wvobject type="logic" fp_name="/flight__tb/dut/controls_ready">
-      <obj_property name="ElementShortName">controls_ready</obj_property>
-      <obj_property name="ObjectShortName">controls_ready</obj_property>
+   <WVObjectSize size="20" />
+   <wvobject fp_name="divider205" type="divider">
+      <obj_property name="label">Motors</obj_property>
+      <obj_property name="DisplayName">label</obj_property>
    </wvobject>
    <wvobject type="logic" fp_name="/flight__tb/motor1">
       <obj_property name="ElementShortName">motor1</obj_property>
@@ -68,120 +40,191 @@
       <obj_property name="ElementShortName">motor4</obj_property>
       <obj_property name="ObjectShortName">motor4</obj_property>
    </wvobject>
-   <wvobject fp_name="divider106" type="divider">
-   </wvobject>
-   <wvobject type="logic" fp_name="/flight__tb/debug_signal">
-      <obj_property name="ElementShortName">debug_signal</obj_property>
-      <obj_property name="ObjectShortName">debug_signal</obj_property>
-   </wvobject>
-   <wvobject type="array" fp_name="/flight__tb/debug_byte">
-      <obj_property name="ElementShortName">debug_byte[7:0]</obj_property>
-      <obj_property name="ObjectShortName">debug_byte[7:0]</obj_property>
-   </wvobject>
-   <wvobject type="logic" fp_name="/flight__tb/debug_data_ready">
-      <obj_property name="ElementShortName">debug_data_ready</obj_property>
-      <obj_property name="ObjectShortName">debug_data_ready</obj_property>
-   </wvobject>
-   <wvobject type="array" fp_name="/flight__tb/dut/attitude">
-      <obj_property name="ElementShortName">attitude[4:0][31:0]</obj_property>
-      <obj_property name="ObjectShortName">attitude[4:0][31:0]</obj_property>
-      <obj_property name="Radix">SIGNEDDECRADIX</obj_property>
-   </wvobject>
-   <wvobject type="array" fp_name="/flight__tb/dut/setpoint">
-      <obj_property name="ElementShortName">setpoint[4:0][31:0]</obj_property>
-      <obj_property name="ObjectShortName">setpoint[4:0][31:0]</obj_property>
-      <obj_property name="Radix">SIGNEDDECRADIX</obj_property>
-   </wvobject>
-   <wvobject type="array" fp_name="/flight__tb/dut/inputs">
-      <obj_property name="ElementShortName">inputs[4:0][31:0]</obj_property>
-      <obj_property name="ObjectShortName">inputs[4:0][31:0]</obj_property>
-      <obj_property name="Radix">SIGNEDDECRADIX</obj_property>
-   </wvobject>
-   <wvobject type="array" fp_name="/flight__tb/dut/motorThrottle">
-      <obj_property name="ElementShortName">motorThrottle[3:0][31:0]</obj_property>
-      <obj_property name="ObjectShortName">motorThrottle[3:0][31:0]</obj_property>
-      <obj_property name="Radix">SIGNEDDECRADIX</obj_property>
-   </wvobject>
-   <wvobject type="array" fp_name="/flight__tb/dut/pid_gains">
-      <obj_property name="ElementShortName">pid_gains[3:0][3:0][15:0]</obj_property>
-      <obj_property name="ObjectShortName">pid_gains[3:0][3:0][15:0]</obj_property>
-   </wvobject>
-   <wvobject fp_name="divider105" type="divider">
-   </wvobject>
-   <wvobject type="array" fp_name="/flight__tb/debug_rx/rxData">
-      <obj_property name="ElementShortName">rxData[7:0]</obj_property>
-      <obj_property name="ObjectShortName">rxData[7:0]</obj_property>
-   </wvobject>
-   <wvobject type="group" fp_name="group220">
-      <obj_property name="label">debug_tx</obj_property>
-      <obj_property name="DisplayName">label</obj_property>
-      <wvobject type="logic" fp_name="/flight__tb/dut/debug/tx/send">
-         <obj_property name="ElementShortName">send</obj_property>
-         <obj_property name="ObjectShortName">send</obj_property>
-      </wvobject>
-      <wvobject type="logic" fp_name="/flight__tb/dut/debug/tx/sendComplete">
-         <obj_property name="ElementShortName">sendComplete</obj_property>
-         <obj_property name="ObjectShortName">sendComplete</obj_property>
-      </wvobject>
-      <wvobject type="logic" fp_name="/flight__tb/dut/debug/tx/outputBit">
-         <obj_property name="ElementShortName">outputBit</obj_property>
-         <obj_property name="ObjectShortName">outputBit</obj_property>
-      </wvobject>
-      <wvobject type="array" fp_name="/flight__tb/dut/debug/tx/buffer">
-         <obj_property name="ElementShortName">buffer[7:0]</obj_property>
-         <obj_property name="ObjectShortName">buffer[7:0]</obj_property>
-      </wvobject>
-      <wvobject type="array" fp_name="/flight__tb/dut/debug/tx/data">
-         <obj_property name="ElementShortName">data[7:0]</obj_property>
-         <obj_property name="ObjectShortName">data[7:0]</obj_property>
-      </wvobject>
-      <wvobject type="array" fp_name="/flight__tb/dut/debug/tx/bitCount">
-         <obj_property name="ElementShortName">bitCount[4:0]</obj_property>
-         <obj_property name="ObjectShortName">bitCount[4:0]</obj_property>
-      </wvobject>
-      <wvobject type="array" fp_name="/flight__tb/dut/gyro_rates_sampled">
-         <obj_property name="ElementShortName">gyro_rates_sampled[2:0][31:0]</obj_property>
-         <obj_property name="ObjectShortName">gyro_rates_sampled[2:0][31:0]</obj_property>
-      </wvobject>
-   </wvobject>
-   <wvobject type="array" fp_name="/flight__tb/dut/attitudeUpdateCounter">
-      <obj_property name="ElementShortName">attitudeUpdateCounter[7:0]</obj_property>
-      <obj_property name="ObjectShortName">attitudeUpdateCounter[7:0]</obj_property>
-   </wvobject>
-   <wvobject type="logic" fp_name="/flight__tb/dut/gyroSampleReady">
-      <obj_property name="ElementShortName">gyroSampleReady</obj_property>
-      <obj_property name="ObjectShortName">gyroSampleReady</obj_property>
-   </wvobject>
-   <wvobject type="logic" fp_name="/flight__tb/dut/update_attitude">
-      <obj_property name="ElementShortName">update_attitude</obj_property>
-      <obj_property name="ObjectShortName">update_attitude</obj_property>
-   </wvobject>
-   <wvobject type="logic" fp_name="/flight__tb/dut/change_update_state">
-      <obj_property name="ElementShortName">change_update_state</obj_property>
-      <obj_property name="ObjectShortName">change_update_state</obj_property>
+   <wvobject type="logic" fp_name="/flight__tb/dut/controls_ready">
+      <obj_property name="ElementShortName">controls_ready</obj_property>
+      <obj_property name="ObjectShortName">controls_ready</obj_property>
    </wvobject>
    <wvobject type="logic" fp_name="/flight__tb/dut/motor_send">
       <obj_property name="ElementShortName">motor_send</obj_property>
       <obj_property name="ObjectShortName">motor_send</obj_property>
    </wvobject>
-   <wvobject type="array" fp_name="/flight__tb/dut/imu/imu_calibration_state">
-      <obj_property name="ElementShortName">imu_calibration_state[7:0]</obj_property>
-      <obj_property name="ObjectShortName">imu_calibration_state[7:0]</obj_property>
+   <wvobject fp_name="divider106" type="divider">
    </wvobject>
-   <wvobject type="array" fp_name="/flight__tb/dut/imu/imu_sample_state">
-      <obj_property name="ElementShortName">imu_sample_state[7:0]</obj_property>
-      <obj_property name="ObjectShortName">imu_sample_state[7:0]</obj_property>
+   <wvobject type="array" fp_name="/flight__tb/dut/motorMixer1/mixedSum">
+      <obj_property name="ElementShortName">mixedSum[31:0]</obj_property>
+      <obj_property name="ObjectShortName">mixedSum[31:0]</obj_property>
+      <obj_property name="Radix">REALRADIX</obj_property>
+      <obj_property name="radix_realType">SIGNEDFIXEDPOINTRADIX</obj_property>
+      <obj_property name="radix_fractionWidth">28</obj_property>
+      <obj_property name="radix_otherWidth">0</obj_property>
+      <obj_property name="WaveformStyle">STYLE_ANALOG</obj_property>
+      <obj_property name="CellHeight">100</obj_property>
+      <obj_property name="AnalogYRangeType">ANALOG_YRANGETYPE_FIXED</obj_property>
+      <obj_property name="AnalogYRangeMin">-1.000000</obj_property>
+      <obj_property name="AnalogYRRangeMax">1.000000</obj_property>
+      <obj_property name="AnalogInterpolation">ANALOG_INTERPOLATION_HOLD</obj_property>
+      <obj_property name="AnalogOffscale">ANALOG_OFFSCALE_OVERLAP</obj_property>
+      <obj_property name="AnalogHorizLine">0.000000</obj_property>
    </wvobject>
-   <wvobject type="array" fp_name="/flight__tb/dut/imu/imu_state">
-      <obj_property name="ElementShortName">imu_state[7:0]</obj_property>
-      <obj_property name="ObjectShortName">imu_state[7:0]</obj_property>
+   <wvobject type="array" fp_name="/flight__tb/dut/attitude">
+      <obj_property name="ElementShortName">attitude[2:0][31:0]</obj_property>
+      <obj_property name="ObjectShortName">attitude[2:0][31:0]</obj_property>
+      <obj_property name="Radix">REALRADIX</obj_property>
+      <obj_property name="radix_realType">SIGNEDFIXEDPOINTRADIX</obj_property>
+      <obj_property name="radix_fractionWidth">28</obj_property>
+      <obj_property name="radix_otherWidth">0</obj_property>
    </wvobject>
-   <wvobject type="array" fp_name="/flight__tb/dut/imu/imu_cfg_state">
-      <obj_property name="ElementShortName">imu_cfg_state[7:0]</obj_property>
-      <obj_property name="ObjectShortName">imu_cfg_state[7:0]</obj_property>
+   <wvobject type="array" fp_name="/flight__tb/dut/motorMixer3/mixedSum">
+      <obj_property name="ElementShortName">mixedSum[31:0]</obj_property>
+      <obj_property name="ObjectShortName">mixedSum[31:0]</obj_property>
+      <obj_property name="Radix">REALRADIX</obj_property>
+      <obj_property name="radix_realType">SIGNEDFIXEDPOINTRADIX</obj_property>
+      <obj_property name="radix_fractionWidth">28</obj_property>
+      <obj_property name="radix_otherWidth">0</obj_property>
+      <obj_property name="WaveformStyle">STYLE_ANALOG</obj_property>
+      <obj_property name="CellHeight">100</obj_property>
+      <obj_property name="AnalogYRangeType">ANALOG_YRANGETYPE_FIXED</obj_property>
+      <obj_property name="AnalogYRangeMin">-1.000000</obj_property>
+      <obj_property name="AnalogYRRangeMax">1.000000</obj_property>
+      <obj_property name="AnalogInterpolation">ANALOG_INTERPOLATION_HOLD</obj_property>
+      <obj_property name="AnalogOffscale">ANALOG_OFFSCALE_OVERLAP</obj_property>
+      <obj_property name="AnalogHorizLine">0.000000</obj_property>
    </wvobject>
-   <wvobject type="array" fp_name="/flight__tb/dut/imu/gyroSampleBuffer">
-      <obj_property name="ElementShortName">gyroSampleBuffer[128:0][15:0]</obj_property>
-      <obj_property name="ObjectShortName">gyroSampleBuffer[128:0][15:0]</obj_property>
+   <wvobject type="array" fp_name="/flight__tb/dut/setpoint">
+      <obj_property name="ElementShortName">setpoint[4:0][31:0]</obj_property>
+      <obj_property name="ObjectShortName">setpoint[4:0][31:0]</obj_property>
+      <obj_property name="Radix">REALRADIX</obj_property>
+      <obj_property name="radix_realType">SIGNEDFIXEDPOINTRADIX</obj_property>
+      <obj_property name="radix_fractionWidth">28</obj_property>
+      <obj_property name="radix_otherWidth">0</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/flight__tb/dut/inputs">
+      <obj_property name="ElementShortName">inputs[4:0][31:0]</obj_property>
+      <obj_property name="ObjectShortName">inputs[4:0][31:0]</obj_property>
+      <obj_property name="Radix">REALRADIX</obj_property>
+      <obj_property name="radix_realType">SIGNEDFIXEDPOINTRADIX</obj_property>
+      <obj_property name="radix_fractionWidth">28</obj_property>
+      <obj_property name="radix_otherWidth">0</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/flight__tb/dut/mixedThrottle">
+      <obj_property name="ElementShortName">mixedThrottle[3:0][31:0]</obj_property>
+      <obj_property name="ObjectShortName">mixedThrottle[3:0][31:0]</obj_property>
+      <obj_property name="Radix">REALRADIX</obj_property>
+      <obj_property name="radix_realType">SIGNEDFIXEDPOINTRADIX</obj_property>
+      <obj_property name="radix_fractionWidth">28</obj_property>
+      <obj_property name="radix_otherWidth">0</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/flight__tb/dut/motorThrottle">
+      <obj_property name="ElementShortName">motorThrottle[3:0][31:0]</obj_property>
+      <obj_property name="ObjectShortName">motorThrottle[3:0][31:0]</obj_property>
+      <obj_property name="Radix">REALRADIX</obj_property>
+      <obj_property name="radix_realType">SIGNEDFIXEDPOINTRADIX</obj_property>
+      <obj_property name="radix_fractionWidth">28</obj_property>
+      <obj_property name="radix_otherWidth">0</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/flight__tb/dut/gyro_rates_raw">
+      <obj_property name="ElementShortName">gyro_rates_raw[2:0][31:0]</obj_property>
+      <obj_property name="ObjectShortName">gyro_rates_raw[2:0][31:0]</obj_property>
+      <obj_property name="isExpanded"></obj_property>
+      <wvobject type="array" fp_name="/flight__tb/dut/gyro_rates_raw[2]">
+         <obj_property name="ElementShortName">[2][31:0]</obj_property>
+         <obj_property name="ObjectShortName">[2][31:0]</obj_property>
+         <obj_property name="Radix">REALRADIX</obj_property>
+         <obj_property name="radix_realType">SIGNEDFIXEDPOINTRADIX</obj_property>
+         <obj_property name="radix_fractionWidth">28</obj_property>
+         <obj_property name="radix_otherWidth">0</obj_property>
+         <obj_property name="WaveformStyle">STYLE_ANALOG</obj_property>
+         <obj_property name="CellHeight">100</obj_property>
+         <obj_property name="AnalogYRangeType">ANALOG_YRANGETYPE_AUTO</obj_property>
+         <obj_property name="AnalogYRangeMin">0.000000</obj_property>
+         <obj_property name="AnalogYRRangeMax">0.000000</obj_property>
+         <obj_property name="AnalogInterpolation">ANALOG_INTERPOLATION_HOLD</obj_property>
+         <obj_property name="AnalogOffscale">ANALOG_OFFSCALE_HIDE</obj_property>
+         <obj_property name="AnalogHorizLine">0.000000</obj_property>
+      </wvobject>
+      <wvobject type="array" fp_name="/flight__tb/dut/gyro_rates_raw[1]">
+         <obj_property name="ElementShortName">[1][31:0]</obj_property>
+         <obj_property name="ObjectShortName">[1][31:0]</obj_property>
+         <obj_property name="Radix">REALRADIX</obj_property>
+         <obj_property name="radix_realType">SIGNEDFIXEDPOINTRADIX</obj_property>
+         <obj_property name="radix_fractionWidth">28</obj_property>
+         <obj_property name="radix_otherWidth">0</obj_property>
+         <obj_property name="WaveformStyle">STYLE_ANALOG</obj_property>
+         <obj_property name="CellHeight">100</obj_property>
+         <obj_property name="AnalogYRangeType">ANALOG_YRANGETYPE_AUTO</obj_property>
+         <obj_property name="AnalogYRangeMin">0.000000</obj_property>
+         <obj_property name="AnalogYRRangeMax">0.000000</obj_property>
+         <obj_property name="AnalogInterpolation">ANALOG_INTERPOLATION_HOLD</obj_property>
+         <obj_property name="AnalogOffscale">ANALOG_OFFSCALE_HIDE</obj_property>
+         <obj_property name="AnalogHorizLine">0.000000</obj_property>
+      </wvobject>
+      <wvobject type="array" fp_name="/flight__tb/dut/gyro_rates_raw[0]">
+         <obj_property name="ElementShortName">[0][31:0]</obj_property>
+         <obj_property name="ObjectShortName">[0][31:0]</obj_property>
+         <obj_property name="Radix">REALRADIX</obj_property>
+         <obj_property name="radix_realType">SIGNEDFIXEDPOINTRADIX</obj_property>
+         <obj_property name="radix_fractionWidth">28</obj_property>
+         <obj_property name="radix_otherWidth">0</obj_property>
+         <obj_property name="WaveformStyle">STYLE_ANALOG</obj_property>
+         <obj_property name="CellHeight">100</obj_property>
+         <obj_property name="AnalogYRangeType">ANALOG_YRANGETYPE_AUTO</obj_property>
+         <obj_property name="AnalogYRangeMin">0.000000</obj_property>
+         <obj_property name="AnalogYRRangeMax">0.000000</obj_property>
+         <obj_property name="AnalogInterpolation">ANALOG_INTERPOLATION_HOLD</obj_property>
+         <obj_property name="AnalogOffscale">ANALOG_OFFSCALE_HIDE</obj_property>
+         <obj_property name="AnalogHorizLine">0.000000</obj_property>
+      </wvobject>
+   </wvobject>
+   <wvobject type="array" fp_name="/flight__tb/dut/imu/rates_raw_roll">
+      <obj_property name="ElementShortName">rates_raw_roll[31:0]</obj_property>
+      <obj_property name="ObjectShortName">rates_raw_roll[31:0]</obj_property>
+      <obj_property name="WaveformStyle">STYLE_ANALOG</obj_property>
+      <obj_property name="CellHeight">100</obj_property>
+      <obj_property name="Radix">REALRADIX</obj_property>
+      <obj_property name="radix_realType">SIGNEDFIXEDPOINTRADIX</obj_property>
+      <obj_property name="radix_fractionWidth">28</obj_property>
+      <obj_property name="radix_otherWidth">0</obj_property>
+      <obj_property name="AnalogYRangeType">ANALOG_YRANGETYPE_AUTO</obj_property>
+      <obj_property name="AnalogYRangeMin">0.000000</obj_property>
+      <obj_property name="AnalogYRRangeMax">0.000000</obj_property>
+      <obj_property name="AnalogInterpolation">ANALOG_INTERPOLATION_HOLD</obj_property>
+      <obj_property name="AnalogOffscale">ANALOG_OFFSCALE_HIDE</obj_property>
+      <obj_property name="AnalogHorizLine">0.000000</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/flight__tb/dut/imu/rates_raw_pitch">
+      <obj_property name="ElementShortName">rates_raw_pitch[31:0]</obj_property>
+      <obj_property name="ObjectShortName">rates_raw_pitch[31:0]</obj_property>
+      <obj_property name="WaveformStyle">STYLE_ANALOG</obj_property>
+      <obj_property name="CellHeight">100</obj_property>
+      <obj_property name="Radix">REALRADIX</obj_property>
+      <obj_property name="radix_realType">SIGNEDFIXEDPOINTRADIX</obj_property>
+      <obj_property name="radix_fractionWidth">28</obj_property>
+      <obj_property name="radix_otherWidth">0</obj_property>
+      <obj_property name="AnalogYRangeType">ANALOG_YRANGETYPE_AUTO</obj_property>
+      <obj_property name="AnalogYRangeMin">0.000000</obj_property>
+      <obj_property name="AnalogYRRangeMax">0.000000</obj_property>
+      <obj_property name="AnalogInterpolation">ANALOG_INTERPOLATION_HOLD</obj_property>
+      <obj_property name="AnalogOffscale">ANALOG_OFFSCALE_HIDE</obj_property>
+      <obj_property name="AnalogHorizLine">0.000000</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/flight__tb/dut/imu/rates_raw_yaw">
+      <obj_property name="ElementShortName">rates_raw_yaw[31:0]</obj_property>
+      <obj_property name="ObjectShortName">rates_raw_yaw[31:0]</obj_property>
+      <obj_property name="WaveformStyle">STYLE_ANALOG</obj_property>
+      <obj_property name="CellHeight">100</obj_property>
+      <obj_property name="Radix">REALRADIX</obj_property>
+      <obj_property name="radix_realType">SIGNEDFIXEDPOINTRADIX</obj_property>
+      <obj_property name="radix_fractionWidth">28</obj_property>
+      <obj_property name="radix_otherWidth">0</obj_property>
+      <obj_property name="AnalogYRangeType">ANALOG_YRANGETYPE_AUTO</obj_property>
+      <obj_property name="AnalogYRangeMin">0.000000</obj_property>
+      <obj_property name="AnalogYRRangeMax">0.000000</obj_property>
+      <obj_property name="AnalogInterpolation">ANALOG_INTERPOLATION_HOLD</obj_property>
+      <obj_property name="AnalogOffscale">ANALOG_OFFSCALE_HIDE</obj_property>
+      <obj_property name="AnalogHorizLine">0.000000</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/flight__tb/dut/imu/spiRxData">
+      <obj_property name="ElementShortName">spiRxData[55:0]</obj_property>
+      <obj_property name="ObjectShortName">spiRxData[55:0]</obj_property>
    </wvobject>
 </wave_config>

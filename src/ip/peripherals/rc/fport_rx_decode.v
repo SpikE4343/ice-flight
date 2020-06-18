@@ -77,8 +77,9 @@ module fport_rx_decoder
   
   reg [31:0] timeout_counter;
 
-  // reg [7:0] debug_byte;
-  // reg debug_send;
+  reg [3:0] waitDelay;
+  reg unmask;
+
   
   function automatic [DEPTH_BIT:0] PacketData;
     input [DEPTH_BIT:0] offset;
@@ -104,12 +105,6 @@ module fport_rx_decoder
     end
   endfunction
 
-  // uart_tx debug (
-  //   .clock(clock),
-  //   .txIn(debug_byte),
-  //   .txOut(debug_out),
-  //   .send(debug_send)
-  // );
 
   initial begin
     read_addr = 0;
@@ -127,9 +122,10 @@ module fport_rx_decoder
     failsafe = 0;
     unmask = 0;
     timeout_counter = TIMEOUT_COUNT;
+    waitDelay = 0;
   end
 
-  reg unmask;
+
 
   always @(posedge rxDataAvail) begin
       if(unmask) begin
@@ -223,6 +219,7 @@ module fport_rx_decoder
     
           // ======================================
           ST_PARSE_DATA: begin
+            waitDelay <= 4'd8;
             case(packet_type)
               FRAME_TYPE_CONTROL: begin
                 if(packet_len != FRAME_LEN_CONTROL) 
@@ -315,7 +312,10 @@ module fport_rx_decoder
           ST_CONTROL_FRAME_READY: begin
             // debug_byte <= controls0;
             // debug_send <= 1;
-            state <= ST_RESET;
+            waitDelay <= waitDelay - 1;
+            if(waitDelay == 0 ) begin
+                state <= ST_RESET;
+            end
           end
     
           // ======================================
