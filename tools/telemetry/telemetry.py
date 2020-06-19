@@ -14,7 +14,7 @@ import scipy.fftpack
 ser = serial.Serial(port='/dev/ttyUSB0', baudrate=2000000, stopbits=1)
 ser.flushInput()
 
-size = 2048
+size = 4096
 pause_time = 0.1
 
 msgGyro = struct.Struct('< i i i')
@@ -190,7 +190,7 @@ def updateData():
                     setpointData[i].pop(0)
                 # inputsCurves[i].setData(inputsData[i])
         # Gyro
-        elif msgType == 4 and msgGyro.size <= len(ser_bytes):
+        elif msgType == 4 and msgGyro.size == len(ser_bytes):
 
             gyro = msgGyro.unpack(ser_bytes)
             # gyro = (int(gyro[0] / 16.4 * 2), int(gyro[1] / 16.4 * 2),
@@ -206,7 +206,7 @@ def updateData():
                 gyroFftCurves[i].setData(2.0 / size * np.abs(yf[:size // 2]))
 
         # RX
-        elif msgType == 3 and msgRx.size <= len(ser_bytes):
+        elif msgType == 3 and msgRx.size == len(ser_bytes):
             rx = msgRx.unpack(ser_bytes)
             rxData.append(rx)
             for i in range(4):
@@ -215,7 +215,7 @@ def updateData():
                     rxData[i].pop(0)
 
         # Motors
-        elif msgType == 2 and msgMotor.size <= len(ser_bytes):
+        elif msgType == 2 and msgMotor.size == len(ser_bytes):
             motor = msgMotor.unpack(ser_bytes)
             for i in range(4):
                 motorData[i].append(motor[i])
@@ -224,7 +224,7 @@ def updateData():
 
         #Inputs
 
-        elif msgType == 1 and msgInput.size <= len(ser_bytes):
+        elif msgType == 1 and msgInput.size == len(ser_bytes):
             inputs = msgInput.unpack(ser_bytes)
             for i in range(4):
                 inputsData[i].append(inputs[i])

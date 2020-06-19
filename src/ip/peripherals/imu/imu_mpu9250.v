@@ -1,6 +1,6 @@
 // look in pins.pcf for all the pin names on the TinyFPGA BX board
 
-`include "imu_defines.vh"
+`include "ip/peripherals/imu/imu_defines.vh"
 
 module imu_mpu_9250 
 #(
@@ -120,7 +120,7 @@ module imu_mpu_9250
     imu_cfg_state = IMU_ST_CFG_RESET;
     imu_sample_state = IMU_ST_SAMPLE_STOPPED;
     imu_calibration_state = IMU_ST_CALIB_START;
-    counter1 = BASE_FREQ / 1000;
+    counter1 = 0;//BASE_FREQ / 1000;
 
     sample_read = 7'd0;
     sample_write = 7'd0;
@@ -149,7 +149,7 @@ module imu_mpu_9250
 
   reg spi_out_fast;
   
-  assign SCLK = spi_out_fast ? fastOutSCLK : regOutSCLK;
+  assign SCLK = fastOutSCLK;//spi_out_fast ? fastOutSCLK : regOutSCLK;
   assign MOSI = spi_out_fast ? fastOutMOSI : regOutMOSI;
   assign CS = spi_out_fast ? fastOutCS : regOutCS;
   
@@ -193,6 +193,7 @@ module imu_mpu_9250
 
   always @(posedge clk) begin
     
+    
     if( gyroUpdateCounter > 0) 
     begin
       gyroUpdateCounter <= gyroUpdateCounter - 1;
@@ -211,6 +212,7 @@ module imu_mpu_9250
       end
       // * Write imu configuration registers
       IMU_ST_STARTUP: begin
+        
         case(imu_cfg_state)
           
           IMU_ST_CFG_RESET: begin // 1 
@@ -260,6 +262,7 @@ module imu_mpu_9250
       // * Startup, configuration or calibration has failed, disable sampling
       IMU_ST_FAIL: 
       begin
+        
         imu_sample_state <= IMU_ST_SAMPLE_STOPPED;
       end
 
@@ -286,6 +289,7 @@ module imu_mpu_9250
 
       IMU_ST_ACTIVE: 
       begin
+        
         // start pulling samples from the imu
         if(imu_sample_state == IMU_ST_SAMPLE_STOPPED)
           imu_sample_state <= IMU_ST_SAMPLE_IDLE;
@@ -302,6 +306,7 @@ module imu_mpu_9250
       begin
         sampleReady <= 0;
         if(gyro_update) begin
+          
           spi_out_fast <= 1;
           spiTxData = { 
             `MPU_RA_GYRO_XOUT_H | `MPU_RA_READ_FLAG, 
@@ -365,9 +370,9 @@ module imu_mpu_9250
 
             testSampleRead <= testSampleRead + 9'd3;
           `else
-            rates_raw_roll <= { spiRxData[47], spiRxData[47], spiRxData[47], spiRxData[47:32], 13'h0};
-            rates_raw_pitch <= { spiRxData[31], spiRxData[31], spiRxData[31], spiRxData[31:16], 13'h0};
-            rates_raw_yaw <= { spiRxData[15], spiRxData[15], spiRxData[15], spiRxData[15:0], 13'h0};
+            rates_raw_roll <= { spiRxData[47], spiRxData[47], spiRxData[47],  spiRxData[47], spiRxData[47:32], 12'h0};
+            rates_raw_pitch <= { spiRxData[31], spiRxData[31], spiRxData[31], spiRxData[31], spiRxData[31:16], 12'h0};
+            rates_raw_yaw <= { spiRxData[15], spiRxData[15], 3'h0, spiRxData[15:0], 12'h0};
 
             // rates_raw_roll <= spiRxData[47:32] <<< 13;
             // rates_raw_pitch <= spiRxData[31:16] <<< 13;
@@ -388,17 +393,10 @@ module imu_mpu_9250
 
       4: // * IMU_ST_SAMPLE_READY:
       begin
-
-//        gyroSampleBuffer[sample_read] <= gyroSampleBuffer[sample_read] <<< 10;
-//        gyroSampleBuffer[sample_read+7'd1] <= gyroSampleBuffer[sample_read+7'd1] <<< 10;
-//        gyroSampleBuffer[sample_read+7'd2] <= gyroSampleBuffer[sample_read+7'd2] <<< 10;
-        
-        // rates_raw_roll <= gyroSampleBuffer[sample_read] <<< 13;
-        // rates_raw_pitch <= gyroSampleBuffer[sample_read+9'd1] <<< 13;
-        // rates_raw_yaw <= gyroSampleBuffer[sample_read+9'd2] <<< 13;
         sample_read <= sample_read + 9'd3;
         counter1 <= 8;
         imu_sample_state  <= 5;
+        sampleReady <= 1;
       end
 
        5: // * IMU_ST_SAMPLE_READY:

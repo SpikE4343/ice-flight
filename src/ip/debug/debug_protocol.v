@@ -1,6 +1,4 @@
-
-
-`include "debugger_defines.vh"
+`include "ip/debug/debugger_defines.vh"
 
 module debug_protocol  
 (

@@ -11,11 +11,11 @@ module flight__tb;
  // inputs to the DUT are reg type
  //localparam FILESIZE=8536;
  //localparam FILESIZE=1024;
- //localparam FILESIZE=1040;
+ localparam FILESIZE=1040;
  //localparam FILESIZE=76240;
  //localparam FILESIZE=10208;
  //localparam FILESIZE=1396;
- localparam FILESIZE=16'd15888;
+ //localparam FILESIZE=16'd15888;
  //localparam FILESIZE=30;
 
 
@@ -120,7 +120,7 @@ module flight__tb;
     //$readmemh("rxsr-throttle-1040.txt", msgData);
     //$readmemh("../captures/rxsr-throttle-1408-hr.txt", msgData);
     //$readmemh("rxsr-throttle-1408-hr.txt", msgData);
-    $readmemh("rxsr-r-p-sweep.txt", msgData);
+    $readmemh("../captures/rxsr-throttle-1040.txt", msgData);
     
     clk_50 = 1'b0;
     while (dataIndex < FILESIZE) begin
@@ -143,7 +143,8 @@ module flight__tb;
     end
     // at time 0
     
-    #100_000_000 $finish;
+    //#100_000_000 $finish;
+    $finish;
     // call the load_count task
   end
 

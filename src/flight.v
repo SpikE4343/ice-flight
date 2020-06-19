@@ -4,7 +4,7 @@
 `define SBUS_HALF_RANGE 792
 `define SBUS_INPUT_RANGE `SBUS_INPUT_MAX - `SBUS_INPUT_MIN
 
-`include "debugger_defines.vh"
+`include "ip/debug/debugger_defines.vh"
 
 module flight 
 #(
@@ -267,10 +267,10 @@ module flight
   assign MOTOR_4 = motorOutputs[3];
 
   assign armed = 1;//controlInputs[0] > 0;
-  assign LED_ARMED = controls_ready | rx_data_ready;
+  assign LED_ARMED = gyroSampleReady;
   assign LED_STATUS = useGyro;//failsafe | rxFrameLoss;
   
-  assign reset = btn0;
+  assign reset = 0;//btn0;
 
     integer i;
   
@@ -284,34 +284,17 @@ module flight
   localparam ST_CLEAN_MOTOR_OUTPUTS = 5;
   localparam ST_APPLY_UPDATES = 6;
   
-
-  // // * Sample Gyro State
-  // always @(posedge gyroSampleReady) begin
-  //   gyro_rates_sampled[0] <= gyro_rates_raw[0];// + gyro_rates_sampled[0]) >> 1;
-  //   gyro_rates_sampled[1] <= gyro_rates_raw[1];// + gyro_rates_sampled[1]) >> 1;
-  //   gyro_rates_sampled[2] <= gyro_rates_raw[2];// + gyro_rates_sampled[2]) >> 1;
-
-    
-  //   if(attitudeUpdateCounter == 8'h0) begin
-  //     attitudeUpdateCounter <= (GYRO_UPDATE_HZ / MOTOR_UPDATE_HZ) -1;
-  //     update_attitude <= ~update_attitude;
-  //   end else begin
-  //     attitudeUpdateCounter <= attitudeUpdateCounter - 1;
-  //   end`  
-  // end
-
-
   // * Main Loop: process gyro, rx, and attitude data to update motor controls
   always @(posedge clk) begin
   
-    if(btn0) begin 
-        fc_state <= ST_RESET;
-    end
-  
+    // if(btn0) begin 
+    //     fc_state <= ST_RESET;
+    // end
+    
     case(fc_state)
 
-      ST_RESET: begin
-        
+      ST_RESET: 
+      begin
         motor_send <= 0;
         fc_state <= ST_WAIT;
         motorThrottle[0] <= 0;
@@ -320,7 +303,8 @@ module flight
         motorThrottle[3] <= 0;
       end
 
-      ST_WAIT: begin
+      ST_WAIT: 
+      begin
         motor_send <= 0;
         if(change_update_state != update_attitude) begin
             change_update_state <= update_attitude;
@@ -329,7 +313,8 @@ module flight
         end
       end
 
-      ST_UPDATE_ATTITUDE: begin
+      ST_UPDATE_ATTITUDE: 
+      begin
           inputs[INPUT_ROLL]  <= PID(INPUT_ROLL);
           inputs[INPUT_PITCH] <= PID(INPUT_PITCH);
           inputs[INPUT_YAW]   <= PID(INPUT_YAW);
@@ -342,7 +327,8 @@ module flight
         fc_state <= ST_MOTOR_SATURATION;
       end
 
-      ST_MOTOR_SATURATION: begin
+      ST_MOTOR_SATURATION: 
+      begin
         // Clamp for now
         for(i = 0; i < 4; i = i  + 1) begin
             motorThrottle[i] <= (mixedThrottle[i] + 32'sh10_00_00_00) >>> 18;
@@ -351,7 +337,8 @@ module flight
         fc_state <= ST_CLEAN_MOTOR_OUTPUTS;
       end
 
-      ST_CLEAN_MOTOR_OUTPUTS: begin
+      ST_CLEAN_MOTOR_OUTPUTS: 
+      begin
         
           for(i = 0; i < 4; i = i  + 1) begin
             motorThrottle[i] <= motorThrottle[i] < 32'sh0 ? 32'sh0 : 
@@ -362,7 +349,8 @@ module flight
         fc_state <= ST_APPLY_UPDATES;
       end
 
-      ST_APPLY_UPDATES: begin
+      ST_APPLY_UPDATES: 
+      begin
         motor_send <= 1;
         fc_state <= ST_WAIT;
         debugUpdateCount <= debugUpdateCount - 1;
@@ -370,8 +358,16 @@ module flight
         if( debugUpdateCount == 32'b0 && (debugState == DEBUG_ST_WAIT || debugState == DEBUG_ST_RESET))
             debugState <= DEBUG_ST_SEND;
       end
+
+      default:
+      begin
+        fc_state <= ST_RESET;
+      end
     endcase
     
+    // ==============================================
+    // * Debug FSM
+    // ==============================================
     case(debugState)
       DEBUG_ST_RESET: begin
         debugState <= DEBUG_ST_WAIT;
@@ -443,6 +439,11 @@ module flight
         debug_msg_send <= 1;
         debugState <= DEBUG_ST_LOAD;
       end
+
+      default: 
+        begin
+          debugState <= DEBUG_ST_RESET;
+        end
     endcase
 
     // * Update RX control inputs
@@ -454,6 +455,7 @@ module flight
     end
 
     if(gyroSampleReady) begin
+      motor_send <= 1;
       gyro_rates_sampled[0] <= gyro_rates_raw[0];// + gyro_rates_sampled[0]) >> 1;
       gyro_rates_sampled[1] <= gyro_rates_raw[1];// + gyro_rates_sampled[1]) >> 1;
       gyro_rates_sampled[2] <= gyro_rates_raw[2];// + gyro_rates_sampled[2]) >> 1;
@@ -466,174 +468,169 @@ module flight
       end  
     end
     
-    if( w_debug_msg_data_load) begin
-    case (debugSendState)
-       DEBUG_SEND_STATUS: 
-      begin
-        case(w_debug_msg_data_index)
-          8'd0: debug_msg_data <= fc_state;
-          8'd1: debug_msg_data <= armed;
-          8'd2: debug_msg_data <= failsafe;
-          8'd3: debug_msg_data <= rxFrameLoss;
+    if( w_debug_msg_data_load) 
+    begin
+      case (debugSendState)
+        DEBUG_SEND_STATUS: 
+        begin
+          case(w_debug_msg_data_index)
+            8'd0: debug_msg_data <= fc_state;
+            8'd1: debug_msg_data <= armed;
+            8'd2: debug_msg_data <= failsafe;
+            8'd3: debug_msg_data <= rxFrameLoss;
 
-        endcase
-      end
+          endcase
+        end
 
-      DEBUG_SEND_GYRO: 
-      begin
-        case(w_debug_msg_data_index)
-          // * Roll
-          8'd00: debug_msg_data <= gyro_rates_sampled[0][7:0];
-          8'd01: debug_msg_data <= gyro_rates_sampled[0][15:8];
-          8'd02: debug_msg_data <= gyro_rates_sampled[0][23:16];
-          8'd03: debug_msg_data <= gyro_rates_sampled[0][31:24];
+        DEBUG_SEND_GYRO: 
+        begin
+          case(w_debug_msg_data_index)
+            // * Roll
+            8'd00: debug_msg_data <= gyro_rates_sampled[0][7:0];
+            8'd01: debug_msg_data <= gyro_rates_sampled[0][15:8];
+            8'd02: debug_msg_data <= gyro_rates_sampled[0][23:16];
+            8'd03: debug_msg_data <= gyro_rates_sampled[0][31:24];
 
-          // * Pitch
-          8'd04: debug_msg_data <= gyro_rates_sampled[1][7:0];
-          8'd05: debug_msg_data <= gyro_rates_sampled[1][15:8];
-          8'd06: debug_msg_data <= gyro_rates_sampled[1][23:16];
-          8'd07: debug_msg_data <= gyro_rates_sampled[1][31:24];
+            // * Pitch
+            8'd04: debug_msg_data <= gyro_rates_sampled[1][7:0];
+            8'd05: debug_msg_data <= gyro_rates_sampled[1][15:8];
+            8'd06: debug_msg_data <= gyro_rates_sampled[1][23:16];
+            8'd07: debug_msg_data <= gyro_rates_sampled[1][31:24];
 
-          // * Yaw
-          8'd08: debug_msg_data <= gyro_rates_sampled[2][7:0];
-          8'd09: debug_msg_data <= gyro_rates_sampled[2][15:8];
-          8'd10: debug_msg_data <= gyro_rates_sampled[2][23:16];
-          8'd11: debug_msg_data <= gyro_rates_sampled[2][31:24];
+            // * Yaw
+            8'd08: debug_msg_data <= gyro_rates_sampled[2][7:0];
+            8'd09: debug_msg_data <= gyro_rates_sampled[2][15:8];
+            8'd10: debug_msg_data <= gyro_rates_sampled[2][23:16];
+            8'd11: debug_msg_data <= gyro_rates_sampled[2][31:24];
 
-        endcase
-      end
+          endcase
+        end
 
-      DEBUG_SEND_RX: 
-      begin
-        case(w_debug_msg_data_index)
-          // * Throttle
-          8'd0: debug_msg_data <= controlInputs[0][7:0];
-          8'd1: debug_msg_data <= { 5'h0, controlInputs[0][10:8]};
+        DEBUG_SEND_RX: 
+        begin
+          case(w_debug_msg_data_index)
+            // * Throttle
+            8'd0: debug_msg_data <= controlInputs[0][7:0];
+            8'd1: debug_msg_data <= { 5'h0, controlInputs[0][10:8]};
 
-          // * Pitch
-          8'd2: debug_msg_data <= controlInputs[1][7:0];
-          8'd3: debug_msg_data <= {5'h0, controlInputs[1][10:8]};
+            // * Pitch
+            8'd2: debug_msg_data <= controlInputs[1][7:0];
+            8'd3: debug_msg_data <= {5'h0, controlInputs[1][10:8]};
 
-          // * Yaw
-          8'd4: debug_msg_data <= controlInputs[2][7:0];
-          8'd5: debug_msg_data <= {5'h0, controlInputs[2][10:8]};
+            // * Yaw
+            8'd4: debug_msg_data <= controlInputs[2][7:0];
+            8'd5: debug_msg_data <= {5'h0, controlInputs[2][10:8]};
 
-          // * Roll
-          8'd6: debug_msg_data <= controlInputs[3][7:0];
-          8'd7: debug_msg_data <= { 5'h0, controlInputs[3][10:8]};
+            // * Roll
+            8'd6: debug_msg_data <= controlInputs[3][7:0];
+            8'd7: debug_msg_data <= { 5'h0, controlInputs[3][10:8]};
 
-          // * Aux1
-          8'd8: debug_msg_data <= controlInputs[4][7:0];
-          8'd9: debug_msg_data <= { 5'h0, controlInputs[4][10:8]};
+            // * Aux1
+            8'd8: debug_msg_data <= controlInputs[4][7:0];
+            8'd9: debug_msg_data <= { 5'h0, controlInputs[4][10:8]};
 
-          // * RSSI
-          8'd10: debug_msg_data <= rssi;
-          8'd11: debug_msg_data <= {7'd0, failsafe};
+            // * RSSI
+            8'd10: debug_msg_data <= rssi;
+            8'd11: debug_msg_data <= {7'd0, failsafe};
 
-        endcase
-      end
+          endcase
+        end
 
-      DEBUG_SEND_MOTOR: 
-      begin
-        case(w_debug_msg_data_index)
-          // * Motor1
-          8'd0: debug_msg_data <= motorThrottle[0][7:0];
-          8'd1: debug_msg_data <= motorThrottle[0][15:8];
-          8'd2: debug_msg_data <= motorThrottle[0][23:16];
-          8'd3: debug_msg_data <= motorThrottle[0][31:24];
+        DEBUG_SEND_MOTOR: 
+        begin
+          case(w_debug_msg_data_index)
+            // * Motor1
+            8'd0: debug_msg_data <= motorThrottle[0][7:0];
+            8'd1: debug_msg_data <= motorThrottle[0][15:8];
+            8'd2: debug_msg_data <= motorThrottle[0][23:16];
+            8'd3: debug_msg_data <= motorThrottle[0][31:24];
 
-          // * Motor 2
-          8'd4: debug_msg_data <= motorThrottle[1][7:0];
-          8'd5: debug_msg_data <= motorThrottle[1][15:8];
-          8'd6: debug_msg_data <= motorThrottle[1][23:16];
-          8'd7: debug_msg_data <= motorThrottle[1][31:24];
+            // * Motor 2
+            8'd4: debug_msg_data <= motorThrottle[1][7:0];
+            8'd5: debug_msg_data <= motorThrottle[1][15:8];
+            8'd6: debug_msg_data <= motorThrottle[1][23:16];
+            8'd7: debug_msg_data <= motorThrottle[1][31:24];
 
-          // * Motor 3
-          8'd8: debug_msg_data <= motorThrottle[2][7:0];
-          8'd9: debug_msg_data <= motorThrottle[2][15:8];
-          8'd10: debug_msg_data <= motorThrottle[2][23:16];
-          8'd11: debug_msg_data <= motorThrottle[2][31:24];
+            // * Motor 3
+            8'd8: debug_msg_data <= motorThrottle[2][7:0];
+            8'd9: debug_msg_data <= motorThrottle[2][15:8];
+            8'd10: debug_msg_data <= motorThrottle[2][23:16];
+            8'd11: debug_msg_data <= motorThrottle[2][31:24];
 
-          // * Motor 4
-          8'd12: debug_msg_data <= motorThrottle[3][7:0];
-          8'd13: debug_msg_data <= motorThrottle[3][15:8];
-          8'd14: debug_msg_data <= motorThrottle[3][23:16];
-          8'd15: debug_msg_data <= motorThrottle[3][31:24];   
-        endcase
-      end
+            // * Motor 4
+            8'd12: debug_msg_data <= motorThrottle[3][7:0];
+            8'd13: debug_msg_data <= motorThrottle[3][15:8];
+            8'd14: debug_msg_data <= motorThrottle[3][23:16];
+            8'd15: debug_msg_data <= motorThrottle[3][31:24];   
+          endcase
+        end
 
-      DEBUG_SEND_ATTITUDE: begin
-        case(w_debug_msg_data_index)
-          // * Control Inputs with rates applied
-          8'd0: debug_msg_data <= inputs[0][7:0];
-          8'd1: debug_msg_data <= inputs[0][15:8];
-          8'd2: debug_msg_data <= inputs[0][23:16];
-          8'd3: debug_msg_data <= inputs[0][31:24];
+        DEBUG_SEND_ATTITUDE: begin
+          case(w_debug_msg_data_index)
+            // * Control Inputs with rates applied
+            8'd0: debug_msg_data <= inputs[0][7:0];
+            8'd1: debug_msg_data <= inputs[0][15:8];
+            8'd2: debug_msg_data <= inputs[0][23:16];
+            8'd3: debug_msg_data <= inputs[0][31:24];
 
-          8'd04: debug_msg_data <= inputs[1][7:0];
-          8'd05: debug_msg_data <= inputs[1][15:8];
-          8'd06: debug_msg_data <= inputs[1][23:16];
-          8'd07: debug_msg_data <= inputs[1][31:24];
+            8'd04: debug_msg_data <= inputs[1][7:0];
+            8'd05: debug_msg_data <= inputs[1][15:8];
+            8'd06: debug_msg_data <= inputs[1][23:16];
+            8'd07: debug_msg_data <= inputs[1][31:24];
 
-          8'd08: debug_msg_data <= inputs[2][7:0];
-          8'd09: debug_msg_data <= inputs[2][15:8];
-          8'd10: debug_msg_data <= inputs[2][23:16];
-          8'd11: debug_msg_data <= inputs[2][31:24];
+            8'd08: debug_msg_data <= inputs[2][7:0];
+            8'd09: debug_msg_data <= inputs[2][15:8];
+            8'd10: debug_msg_data <= inputs[2][23:16];
+            8'd11: debug_msg_data <= inputs[2][31:24];
 
-          8'd12: debug_msg_data <= inputs[3][7:0];
-          8'd13: debug_msg_data <= inputs[3][15:8];
-          8'd14: debug_msg_data <= inputs[3][23:16];
-          8'd15: debug_msg_data <= inputs[3][31:24];
+            8'd12: debug_msg_data <= inputs[3][7:0];
+            8'd13: debug_msg_data <= inputs[3][15:8];
+            8'd14: debug_msg_data <= inputs[3][23:16];
+            8'd15: debug_msg_data <= inputs[3][31:24];
 
-          8'd16: debug_msg_data <= inputs[4][7:0];
-          8'd17: debug_msg_data <= inputs[4][15:8];
-          8'd18: debug_msg_data <= inputs[4][23:16];
-          8'd19: debug_msg_data <= inputs[4][31:24];
-        endcase
-      end
+            8'd16: debug_msg_data <= inputs[4][7:0];
+            8'd17: debug_msg_data <= inputs[4][15:8];
+            8'd18: debug_msg_data <= inputs[4][23:16];
+            8'd19: debug_msg_data <= inputs[4][31:24];
+          endcase
+        end
 
-      DEBUG_SEND_SETPOINT: begin
-        case(w_debug_msg_data_index)
-          // * Control Inputs with rates applied
-          8'd0: debug_msg_data <= setpoint[0][7:0];
-          8'd1: debug_msg_data <= setpoint[0][15:8];
-          8'd2: debug_msg_data <= setpoint[0][23:16];
-          8'd3: debug_msg_data <= setpoint[0][31:24];
+        DEBUG_SEND_SETPOINT: begin
+          case(w_debug_msg_data_index)
+            // * Control Inputs with rates applied
+            8'd0: debug_msg_data <= setpoint[0][7:0];
+            8'd1: debug_msg_data <= setpoint[0][15:8];
+            8'd2: debug_msg_data <= setpoint[0][23:16];
+            8'd3: debug_msg_data <= setpoint[0][31:24];
 
-          8'd04: debug_msg_data <= setpoint[1][7:0];
-          8'd05: debug_msg_data <= setpoint[1][15:8];
-          8'd06: debug_msg_data <= setpoint[1][23:16];
-          8'd07: debug_msg_data <= setpoint[1][31:24];
+            8'd04: debug_msg_data <= setpoint[1][7:0];
+            8'd05: debug_msg_data <= setpoint[1][15:8];
+            8'd06: debug_msg_data <= setpoint[1][23:16];
+            8'd07: debug_msg_data <= setpoint[1][31:24];
 
-          8'd08: debug_msg_data <= setpoint[2][7:0];
-          8'd09: debug_msg_data <= setpoint[2][15:8];
-          8'd10: debug_msg_data <= setpoint[2][23:16];
-          8'd11: debug_msg_data <= setpoint[2][31:24];
+            8'd08: debug_msg_data <= setpoint[2][7:0];
+            8'd09: debug_msg_data <= setpoint[2][15:8];
+            8'd10: debug_msg_data <= setpoint[2][23:16];
+            8'd11: debug_msg_data <= setpoint[2][31:24];
 
-          8'd12: debug_msg_data <= setpoint[3][7:0];
-          8'd13: debug_msg_data <= setpoint[3][15:8];
-          8'd14: debug_msg_data <= setpoint[3][23:16];
-          8'd15: debug_msg_data <= setpoint[3][31:24];
+            8'd12: debug_msg_data <= setpoint[3][7:0];
+            8'd13: debug_msg_data <= setpoint[3][15:8];
+            8'd14: debug_msg_data <= setpoint[3][23:16];
+            8'd15: debug_msg_data <= setpoint[3][31:24];
 
-          8'd16: debug_msg_data <= setpoint[4][7:0];
-          8'd17: debug_msg_data <= setpoint[4][15:8];
-          8'd18: debug_msg_data <= setpoint[4][23:16];
-          8'd19: debug_msg_data <= setpoint[4][31:24];
-        endcase
-      end
-    endcase
+            8'd16: debug_msg_data <= setpoint[4][7:0];
+            8'd17: debug_msg_data <= setpoint[4][15:8];
+            8'd18: debug_msg_data <= setpoint[4][23:16];
+            8'd19: debug_msg_data <= setpoint[4][31:24];
+          endcase
+        end
+
+        default: begin
+          debugSendState <= 0;
+        end
+      endcase
+    end
   end
-
-
-  end
-
-  // // * Update RX control inputs
-  // always @(posedge controls_ready) begin
-  //   setpoint[INPUT_THROTTLE] <= RxRangeInput(controlInputs[INPUT_THROTTLE]);
-  //   setpoint[INPUT_ROLL] <= RxRangeInput(controlInputs[INPUT_ROLL]);
-  //   setpoint[INPUT_PITCH] <= RxRangeInput(controlInputs[INPUT_PITCH]);
-  //   setpoint[INPUT_YAW] <= RxRangeInput(controlInputs[INPUT_YAW]);
-  // end
 
   // * Debug Protocol message data loader
   
@@ -691,9 +688,9 @@ module flight
     .sampleReady(gyroSampleReady)
   );
 
-  //========================================
-  // * RC Control Input 
-  //========================================
+  // //========================================
+  // // * RC Control Input 
+  // //========================================
   uart_rx #(
     .CLKS_PER_BIT(BASE_FREQ/FPORT_UART_BAUD)
   ) control_rx (

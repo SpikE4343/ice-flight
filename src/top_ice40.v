@@ -15,6 +15,7 @@ module top
     output PIN_5, // MOSI
     input  PIN_6, // MISO
     output PIN_7, // CS
+    output PIN_8, 
 
 
     input PIN_10,
@@ -26,18 +27,20 @@ module top
     output PIN_21,
     output PIN_22,
     output PIN_23,
-    output PIN_24
+    output PIN_24,
+
+    output LED
 );
 
 
 flight #(
-
+  .BASE_FREQ(16_000_000)
 ) flight_core (
   .CLK(CLK),
 
   .RX_IN(PIN_3),
 
-  .IMU_CLK(PIN_4),
+  .IMU_SCLK(PIN_4),
   .IMU_MOSI(PIN_5),
   .IMU_MISO(PIN_6),
   .IMU_CS(PIN_7),
@@ -48,8 +51,9 @@ flight #(
   .MOTOR_1(PIN_21),
   .MOTOR_2(PIN_22),
   .MOTOR_3(PIN_23),
-  .MOTOR_4(PIN_24)
+  .MOTOR_4(PIN_24),
   
+  .LED_ARMED(PIN_8)
 );
   
 endmodule

@@ -20,7 +20,7 @@ PROG = ARGUMENTS.get('prog', '')
 FPGA_SIZE = ARGUMENTS.get('fpga_size', '')
 FPGA_TYPE = ARGUMENTS.get('fpga_type', '')
 FPGA_PACK = ARGUMENTS.get('fpga_pack', '')
-VERBOSE_ALL = ARGUMENTS.get('verbose_all', False)
+VERBOSE_ALL = ARGUMENTS.get('verbose_all', True)
 VERBOSE_YOSYS = ARGUMENTS.get('verbose_yosys', False)
 VERBOSE_PNR = ARGUMENTS.get('verbose_pnr', True)
 VERILATOR_ALL = ARGUMENTS.get('all', False)
@@ -99,7 +99,28 @@ list_scanner = env.Scanner(function=list_files_scan)
 # -- Get a list of all the verilog files in the src folfer, in ASCII, with
 # -- the full path. All these files are used for the simulation
 v_nodes = Glob('*.v')
-src_sim = [str(f) for f in v_nodes]
+src_sim = [
+    #'ip/debug/debugger_defines.vh',
+    #'top_ice40.v',
+    'top_TB.v',
+    'motor_mixer.v',
+    #'ip/peripherals/imu/imu_defines.vh',
+    'ip/peripherals/imu/imu_mpu9250.v',
+    'ip/peripherals/spi/spi_master.v',
+    'ip/peripherals/uart/uart_rx.v',
+    'ip/peripherals/uart/uart_tx.v',
+    'ip/peripherals/uart/uart.v',
+    'ip/peripherals/rc/dshottx.v',
+    'ip/peripherals/rc/fport_rx_decode.v',
+    'ip/peripherals/rc/motor_control.v',
+    'ip/debug/debug_protocol.v',
+    'flight.v',
+]  #[str(f) for f in v_nodes]
+
+src_top = "top_ice40.v"
+
+if (not 'sim' in COMMAND_LINE_TARGETS):
+    src_sim.append(src_top)
 
 # --------- Get the Testbench file (there should be only 1)
 # -- Create a list with all the files finished in _tb.v. It should contain

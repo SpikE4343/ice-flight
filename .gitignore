@@ -64,3 +64,5 @@ vivado/vivado.ip_user_files/
 *.bd
 vivado/cmod-a7/cmod-a7*.*/
 vivado/vivado.runs/
+src/hardware.json
+src/hardware.rpt
