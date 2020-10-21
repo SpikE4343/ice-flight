@@ -11,11 +11,12 @@ module flight__tb;
  // inputs to the DUT are reg type
  //localparam FILESIZE=8536;
  //localparam FILESIZE=1024;
- localparam FILESIZE=1040;
+ //localparam FILESIZE=1040;
  //localparam FILESIZE=76240;
  //localparam FILESIZE=10208;
  //localparam FILESIZE=1396;
- //localparam FILESIZE=16'd15888;
+ //localparam FILESIZE=1408;
+ localparam FILESIZE=16'd15888;
  //localparam FILESIZE=30;
 
 
@@ -30,7 +31,7 @@ module flight__tb;
  reg [7:0] msgData[0:FILESIZE-1];
  reg dataReady;
  
- localparam BASE_FREQ = 10_000_000;
+ localparam BASE_FREQ = 16_000_000;
  
 // Gyro SPI
   wire MISO;
@@ -63,7 +64,7 @@ module flight__tb;
   wire [7:0] debug_byte;
   wire debug_data_ready;
   uart_rx #(
-    .CLKS_PER_BIT(BASE_FREQ/400000)
+    .CLKS_PER_BIT(BASE_FREQ/2_000_000)
   ) debug_rx (
     .clock(clk_50),
     .rxIn(debug_signal),
@@ -95,14 +96,25 @@ module flight__tb;
  always
   #1 clk_50 = ~clk_50;
   
-  integer idx;
-  initial
+  integer idx, fd;
+
+always @(posedge debug_data_ready) 
+begin
+  $fwrite(fd, "%c", debug_byte);
+  //$fdisplay(fd,"%b",debug_byte);
+  $display(debug_byte);
+  $fflush(fd);
+end
+
+
+initial
   begin
 
     $dumpfile("top_TB.vcd");
     $dumpvars();
     
-
+    fd = $fopen("debug-out.bin", "wb");
+    
     // for (idx = 0; idx < 32; idx = idx + 1) 
     //   $dumpvars(0, dut.fportfport_decode.controlPacket[idx]);
 
@@ -119,8 +131,8 @@ module flight__tb;
     //$readmemh("rxsr-throttle.txt", msgData);
     //$readmemh("rxsr-throttle-1040.txt", msgData);
     //$readmemh("../captures/rxsr-throttle-1408-hr.txt", msgData);
-    //$readmemh("rxsr-throttle-1408-hr.txt", msgData);
-    $readmemh("../captures/rxsr-throttle-1040.txt", msgData);
+    $readmemh("rxsr-r-p-sweep-15888.txt", msgData);
+    //$readmemh("../captures/rxsr-throttle-1040.txt", msgData);
     
     clk_50 = 1'b0;
     while (dataIndex < FILESIZE) begin
@@ -142,7 +154,7 @@ module flight__tb;
 
     end
     // at time 0
-    
+    $fclose(fd);
     //#100_000_000 $finish;
     $finish;
     // call the load_count task

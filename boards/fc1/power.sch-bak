@@ -1,0 +1,249 @@
+EESchema Schematic File Version 4
+EELAYER 30 0
+EELAYER END
+$Descr A4 11693 8268
+encoding utf-8
+Sheet 5 5
+Title ""
+Date ""
+Rev ""
+Comp ""
+Comment1 ""
+Comment2 ""
+Comment3 ""
+Comment4 ""
+$EndDescr
+$Comp
+L Regulator_Linear:MIC5504-3.3YM5 U?
+U 1 1 5F00296E
+P 4700 2700
+AR Path="/5EE79C56/5F00296E" Ref="U?"  Part="1" 
+AR Path="/5EE555E5/5F00296E" Ref="U6"  Part="1" 
+F 0 "U6" H 4700 3067 50  0000 C CNN
+F 1 "MIC5504-3.3YM5" H 4700 2976 50  0000 C CNN
+F 2 "Package_TO_SOT_SMD:SOT-23-5" H 4700 2300 50  0001 C CNN
+F 3 "http://ww1.microchip.com/downloads/en/DeviceDoc/MIC550X.pdf" H 4450 2950 50  0001 C CNN
+	1    4700 2700
+	1    0    0    -1  
+$EndComp
+$Comp
+L Regulator_Linear:MIC5504-1.2YM5 U?
+U 1 1 5F002974
+P 6200 2700
+AR Path="/5EE79C56/5F002974" Ref="U?"  Part="1" 
+AR Path="/5EE555E5/5F002974" Ref="U7"  Part="1" 
+F 0 "U7" H 6200 3067 50  0000 C CNN
+F 1 "MIC5504-1.2YM5" H 6200 2976 50  0000 C CNN
+F 2 "Package_TO_SOT_SMD:SOT-23-5" H 6200 2300 50  0001 C CNN
+F 3 "http://ww1.microchip.com/downloads/en/DeviceDoc/MIC550X.pdf" H 5950 2950 50  0001 C CNN
+	1    6200 2700
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:+1V2 #PWR?
+U 1 1 5F00297A
+P 6850 2350
+AR Path="/5EE79C56/5F00297A" Ref="#PWR?"  Part="1" 
+AR Path="/5EE555E5/5F00297A" Ref="#PWR0117"  Part="1" 
+F 0 "#PWR0117" H 6850 2200 50  0001 C CNN
+F 1 "+1V2" H 6865 2523 50  0000 C CNN
+F 2 "" H 6850 2350 50  0001 C CNN
+F 3 "" H 6850 2350 50  0001 C CNN
+	1    6850 2350
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:+3V3 #PWR?
+U 1 1 5F002980
+P 5450 2350
+AR Path="/5EE79C56/5F002980" Ref="#PWR?"  Part="1" 
+AR Path="/5EE555E5/5F002980" Ref="#PWR0118"  Part="1" 
+F 0 "#PWR0118" H 5450 2200 50  0001 C CNN
+F 1 "+3V3" H 5465 2523 50  0000 C CNN
+F 2 "" H 5450 2350 50  0001 C CNN
+F 3 "" H 5450 2350 50  0001 C CNN
+	1    5450 2350
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:+5V #PWR?
+U 1 1 5F002986
+P 3900 2350
+AR Path="/5EE79C56/5F002986" Ref="#PWR?"  Part="1" 
+AR Path="/5EE555E5/5F002986" Ref="#PWR0119"  Part="1" 
+F 0 "#PWR0119" H 3900 2200 50  0001 C CNN
+F 1 "+5V" H 3915 2523 50  0000 C CNN
+F 2 "" H 3900 2350 50  0001 C CNN
+F 3 "" H 3900 2350 50  0001 C CNN
+	1    3900 2350
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:GND #PWR?
+U 1 1 5F00298C
+P 4700 3150
+AR Path="/5EE79C56/5F00298C" Ref="#PWR?"  Part="1" 
+AR Path="/5EE555E5/5F00298C" Ref="#PWR0120"  Part="1" 
+F 0 "#PWR0120" H 4700 2900 50  0001 C CNN
+F 1 "GND" H 4705 2977 50  0000 C CNN
+F 2 "" H 4700 3150 50  0001 C CNN
+F 3 "" H 4700 3150 50  0001 C CNN
+	1    4700 3150
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:GND #PWR?
+U 1 1 5F002992
+P 6200 3150
+AR Path="/5EE79C56/5F002992" Ref="#PWR?"  Part="1" 
+AR Path="/5EE555E5/5F002992" Ref="#PWR0121"  Part="1" 
+F 0 "#PWR0121" H 6200 2900 50  0001 C CNN
+F 1 "GND" H 6205 2977 50  0000 C CNN
+F 2 "" H 6200 3150 50  0001 C CNN
+F 3 "" H 6200 3150 50  0001 C CNN
+	1    6200 3150
+	1    0    0    -1  
+$EndComp
+$Comp
+L Device:C_Small C?
+U 1 1 5F002998
+P 3900 3050
+AR Path="/5EE79C56/5F002998" Ref="C?"  Part="1" 
+AR Path="/5EE555E5/5F002998" Ref="C13"  Part="1" 
+F 0 "C13" H 3992 3096 50  0000 L CNN
+F 1 "1uF" H 3992 3005 50  0000 L CNN
+F 2 "Capacitor_SMD:C_0402_1005Metric" H 3900 3050 50  0001 C CNN
+F 3 "~" H 3900 3050 50  0001 C CNN
+	1    3900 3050
+	1    0    0    -1  
+$EndComp
+$Comp
+L Device:C_Small C?
+U 1 1 5F00299E
+P 5200 3050
+AR Path="/5EE79C56/5F00299E" Ref="C?"  Part="1" 
+AR Path="/5EE555E5/5F00299E" Ref="C14"  Part="1" 
+F 0 "C14" H 5292 3096 50  0000 L CNN
+F 1 "1uF" H 5292 3005 50  0000 L CNN
+F 2 "Capacitor_SMD:C_0402_1005Metric" H 5200 3050 50  0001 C CNN
+F 3 "~" H 5200 3050 50  0001 C CNN
+	1    5200 3050
+	1    0    0    -1  
+$EndComp
+$Comp
+L Device:C_Small C?
+U 1 1 5F0029A4
+P 5650 3050
+AR Path="/5EE79C56/5F0029A4" Ref="C?"  Part="1" 
+AR Path="/5EE555E5/5F0029A4" Ref="C15"  Part="1" 
+F 0 "C15" H 5742 3096 50  0000 L CNN
+F 1 "1uF" H 5742 3005 50  0000 L CNN
+F 2 "Capacitor_SMD:C_0402_1005Metric" H 5650 3050 50  0001 C CNN
+F 3 "~" H 5650 3050 50  0001 C CNN
+	1    5650 3050
+	1    0    0    -1  
+$EndComp
+$Comp
+L Device:C_Small C?
+U 1 1 5F0029AA
+P 6850 3050
+AR Path="/5EE79C56/5F0029AA" Ref="C?"  Part="1" 
+AR Path="/5EE555E5/5F0029AA" Ref="C16"  Part="1" 
+F 0 "C16" H 6942 3096 50  0000 L CNN
+F 1 "1uF" H 6942 3005 50  0000 L CNN
+F 2 "Capacitor_SMD:C_0402_1005Metric" H 6850 3050 50  0001 C CNN
+F 3 "~" H 6850 3050 50  0001 C CNN
+	1    6850 3050
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	3900 3150 4700 3150
+Connection ~ 4700 3150
+Wire Wire Line
+	4700 3150 5200 3150
+Connection ~ 5200 3150
+Wire Wire Line
+	5200 3150 5650 3150
+Connection ~ 5650 3150
+Wire Wire Line
+	5650 3150 6200 3150
+Connection ~ 6200 3150
+Wire Wire Line
+	6200 3150 6850 3150
+Wire Wire Line
+	5100 2600 5200 2600
+Wire Wire Line
+	5450 2350 5450 2600
+Connection ~ 5450 2600
+Wire Wire Line
+	5800 2800 5650 2800
+Wire Wire Line
+	5650 2800 5650 2950
+Wire Wire Line
+	5200 2950 5200 2600
+Connection ~ 5200 2600
+Wire Wire Line
+	5200 2600 5450 2600
+Wire Wire Line
+	4300 2600 3900 2600
+Wire Wire Line
+	3900 2600 3900 2350
+Wire Wire Line
+	3900 2950 3900 2800
+Connection ~ 3900 2600
+Wire Wire Line
+	4300 2800 3900 2800
+Connection ~ 3900 2800
+Wire Wire Line
+	3900 2800 3900 2600
+Wire Wire Line
+	4700 3000 4700 3150
+Wire Wire Line
+	6850 2350 6850 2600
+Wire Wire Line
+	6200 3000 6200 3150
+Wire Wire Line
+	6600 2600 6850 2600
+Connection ~ 6850 2600
+Wire Wire Line
+	6850 2600 6850 2950
+$Comp
+L Connector:TestPoint TP?
+U 1 1 5F0029CE
+P 5450 2600
+AR Path="/5EE79C56/5F0029CE" Ref="TP?"  Part="1" 
+AR Path="/5EE555E5/5F0029CE" Ref="TP1"  Part="1" 
+F 0 "TP1" H 5392 2626 50  0000 R CNN
+F 1 "TestPoint" H 5392 2717 50  0000 R CNN
+F 2 "TestPoint:TestPoint_Pad_D1.0mm" H 5650 2600 50  0001 C CNN
+F 3 "~" H 5650 2600 50  0001 C CNN
+	1    5450 2600
+	-1   0    0    1   
+$EndComp
+$Comp
+L Connector:TestPoint TP?
+U 1 1 5F0029D4
+P 6850 2600
+AR Path="/5EE79C56/5F0029D4" Ref="TP?"  Part="1" 
+AR Path="/5EE555E5/5F0029D4" Ref="TP2"  Part="1" 
+F 0 "TP2" V 6804 2788 50  0000 L CNN
+F 1 "TestPoint" V 6895 2788 50  0000 L CNN
+F 2 "TestPoint:TestPoint_Pad_D1.0mm" H 7050 2600 50  0001 C CNN
+F 3 "~" H 7050 2600 50  0001 C CNN
+	1    6850 2600
+	0    1    1    0   
+$EndComp
+Wire Wire Line
+	5450 2600 5800 2600
+$Comp
+L Connector:USB_OTG J1
+U 1 1 5F058A6F
+P 4050 4950
+F 0 "J1" H 4107 5417 50  0000 C CNN
+F 1 "USB_OTG" H 4107 5326 50  0000 C CNN
+F 2 "Connector_USB:USB_Micro-B_GCT_USB3076-30-A" H 4200 4900 50  0001 C CNN
+F 3 " ~" H 4200 4900 50  0001 C CNN
+	1    4050 4950
+	1    0    0    -1  
+$EndComp
+$EndSCHEMATC

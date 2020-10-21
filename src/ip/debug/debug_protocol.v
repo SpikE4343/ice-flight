@@ -1,4 +1,9 @@
+
+`ifdef BUILD_APIO
 `include "ip/debug/debugger_defines.vh"
+`else
+`include "debugger_defines.vh"
+`endif
 
 module debug_protocol  
 (

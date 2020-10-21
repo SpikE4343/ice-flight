@@ -20,7 +20,7 @@ PROG = ARGUMENTS.get('prog', '')
 FPGA_SIZE = ARGUMENTS.get('fpga_size', '')
 FPGA_TYPE = ARGUMENTS.get('fpga_type', '')
 FPGA_PACK = ARGUMENTS.get('fpga_pack', '')
-VERBOSE_ALL = ARGUMENTS.get('verbose_all', True)
+VERBOSE_ALL = ARGUMENTS.get('verbose_all', False)
 VERBOSE_YOSYS = ARGUMENTS.get('verbose_yosys', False)
 VERBOSE_PNR = ARGUMENTS.get('verbose_pnr', True)
 VERILATOR_ALL = ARGUMENTS.get('all', False)
@@ -105,6 +105,9 @@ src_sim = [
     'top_TB.v',
     'motor_mixer.v',
     #'ip/peripherals/imu/imu_defines.vh',
+    'ip/memory/BlockMemorySinglePort.v',
+    'ip/memory/BlockMemoryDualPort.v',
+    'ip/memory/FIFODualPort.v',
     'ip/peripherals/imu/imu_mpu9250.v',
     'ip/peripherals/spi/spi_master.v',
     'ip/peripherals/uart/uart_rx.v',
@@ -239,8 +242,8 @@ AlwaysBuild(t)
 # -- Icarus Verilog builders
 iverilog = Builder(
     action=
-    'iverilog {0} -o $TARGET -D VCD_OUTPUT={1} {2}/ice40/cells_sim.v $SOURCES'.
-    format(IVER_PATH, TARGET_SIM, YOSYS_PATH),
+    'iverilog {0} -o $TARGET -D BUILD_APIO=1 -D VCD_OUTPUT={1} {2}/ice40/cells_sim.v $SOURCES'
+    .format(IVER_PATH, TARGET_SIM, YOSYS_PATH),
     suffix='.out',
     src_suffix='.v',
     source_scanner=list_scanner)

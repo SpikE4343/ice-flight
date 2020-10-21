@@ -11,15 +11,15 @@
       </db_ref>
    </db_ref_list>
    <zoom_setting>
-      <ZoomStartTime time="846460333fs"></ZoomStartTime>
-      <ZoomEndTime time="1064202334fs"></ZoomEndTime>
-      <Cursor1Time time="1027912000fs"></Cursor1Time>
+      <ZoomStartTime time="0fs"></ZoomStartTime>
+      <ZoomEndTime time="100500000001fs"></ZoomEndTime>
+      <Cursor1Time time="16512592000fs"></Cursor1Time>
    </zoom_setting>
    <column_width_setting>
       <NameColumnWidth column_width="177"></NameColumnWidth>
-      <ValueColumnWidth column_width="116"></ValueColumnWidth>
+      <ValueColumnWidth column_width="92"></ValueColumnWidth>
    </column_width_setting>
-   <WVObjectSize size="20" />
+   <WVObjectSize size="30" />
    <wvobject fp_name="divider205" type="divider">
       <obj_property name="label">Motors</obj_property>
       <obj_property name="DisplayName">label</obj_property>
@@ -48,6 +48,43 @@
       <obj_property name="ElementShortName">motor_send</obj_property>
       <obj_property name="ObjectShortName">motor_send</obj_property>
    </wvobject>
+   <wvobject type="logic" fp_name="/flight__tb/debug_data_ready">
+      <obj_property name="ElementShortName">debug_data_ready</obj_property>
+      <obj_property name="ObjectShortName">debug_data_ready</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/flight__tb/dut/fport_decode/inputFIFO/memory/mem">
+      <obj_property name="ElementShortName">mem[63:0][7:0]</obj_property>
+      <obj_property name="ObjectShortName">mem[63:0][7:0]</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/flight__tb/dut/fport_decode/inputFIFO/memory/p1_address">
+      <obj_property name="ElementShortName">p1_address[5:0]</obj_property>
+      <obj_property name="ObjectShortName">p1_address[5:0]</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/flight__tb/dut/fport_decode/inputFIFO/memory/p2_address">
+      <obj_property name="ElementShortName">p2_address[5:0]</obj_property>
+      <obj_property name="ObjectShortName">p2_address[5:0]</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/flight__tb/dut/fport_decode/fifo_read_data">
+      <obj_property name="ElementShortName">fifo_read_data[7:0]</obj_property>
+      <obj_property name="ObjectShortName">fifo_read_data[7:0]</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/flight__tb/dut/fport_decode/state">
+      <obj_property name="ElementShortName">state[3:0]</obj_property>
+      <obj_property name="ObjectShortName">state[3:0]</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/flight__tb/dut/fport_decode/packet_data_read">
+      <obj_property name="ElementShortName">packet_data_read[7:0]</obj_property>
+      <obj_property name="ObjectShortName">packet_data_read[7:0]</obj_property>
+      <obj_property name="Radix">UNSIGNEDDECRADIX</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/flight__tb/dut/fport_decode/packet_len">
+      <obj_property name="ElementShortName">packet_len[7:0]</obj_property>
+      <obj_property name="ObjectShortName">packet_len[7:0]</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/flight__tb/dut/fport_decode/packet_type">
+      <obj_property name="ElementShortName">packet_type[7:0]</obj_property>
+      <obj_property name="ObjectShortName">packet_type[7:0]</obj_property>
+   </wvobject>
    <wvobject fp_name="divider106" type="divider">
    </wvobject>
    <wvobject type="array" fp_name="/flight__tb/dut/motorMixer1/mixedSum">
@@ -63,7 +100,7 @@
       <obj_property name="AnalogYRangeMin">-1.000000</obj_property>
       <obj_property name="AnalogYRRangeMax">1.000000</obj_property>
       <obj_property name="AnalogInterpolation">ANALOG_INTERPOLATION_HOLD</obj_property>
-      <obj_property name="AnalogOffscale">ANALOG_OFFSCALE_OVERLAP</obj_property>
+      <obj_property name="AnalogOffscale">ANALOG_OFFSCALE_CLIP</obj_property>
       <obj_property name="AnalogHorizLine">0.000000</obj_property>
    </wvobject>
    <wvobject type="array" fp_name="/flight__tb/dut/attitude">
@@ -87,7 +124,7 @@
       <obj_property name="AnalogYRangeMin">-1.000000</obj_property>
       <obj_property name="AnalogYRRangeMax">1.000000</obj_property>
       <obj_property name="AnalogInterpolation">ANALOG_INTERPOLATION_HOLD</obj_property>
-      <obj_property name="AnalogOffscale">ANALOG_OFFSCALE_OVERLAP</obj_property>
+      <obj_property name="AnalogOffscale">ANALOG_OFFSCALE_CLIP</obj_property>
       <obj_property name="AnalogHorizLine">0.000000</obj_property>
    </wvobject>
    <wvobject type="array" fp_name="/flight__tb/dut/setpoint">
@@ -97,6 +134,29 @@
       <obj_property name="radix_realType">SIGNEDFIXEDPOINTRADIX</obj_property>
       <obj_property name="radix_fractionWidth">28</obj_property>
       <obj_property name="radix_otherWidth">0</obj_property>
+      <obj_property name="isExpanded"></obj_property>
+      <wvobject type="array" fp_name="/flight__tb/dut/setpoint[4]">
+         <obj_property name="ElementShortName">[4][31:0]</obj_property>
+         <obj_property name="ObjectShortName">[4][31:0]</obj_property>
+         <obj_property name="WaveformStyle">STYLE_ANALOG</obj_property>
+         <obj_property name="CellHeight">100</obj_property>
+      </wvobject>
+      <wvobject type="array" fp_name="/flight__tb/dut/setpoint[3]">
+         <obj_property name="ElementShortName">[3][31:0]</obj_property>
+         <obj_property name="ObjectShortName">[3][31:0]</obj_property>
+      </wvobject>
+      <wvobject type="array" fp_name="/flight__tb/dut/setpoint[2]">
+         <obj_property name="ElementShortName">[2][31:0]</obj_property>
+         <obj_property name="ObjectShortName">[2][31:0]</obj_property>
+      </wvobject>
+      <wvobject type="array" fp_name="/flight__tb/dut/setpoint[1]">
+         <obj_property name="ElementShortName">[1][31:0]</obj_property>
+         <obj_property name="ObjectShortName">[1][31:0]</obj_property>
+      </wvobject>
+      <wvobject type="array" fp_name="/flight__tb/dut/setpoint[0]">
+         <obj_property name="ElementShortName">[0][31:0]</obj_property>
+         <obj_property name="ObjectShortName">[0][31:0]</obj_property>
+      </wvobject>
    </wvobject>
    <wvobject type="array" fp_name="/flight__tb/dut/inputs">
       <obj_property name="ElementShortName">inputs[4:0][31:0]</obj_property>
@@ -122,68 +182,21 @@
       <obj_property name="radix_fractionWidth">28</obj_property>
       <obj_property name="radix_otherWidth">0</obj_property>
    </wvobject>
+   <wvobject type="array" fp_name="/flight__tb/dut/imu/testSampleRead">
+      <obj_property name="ElementShortName">testSampleRead[17:0]</obj_property>
+      <obj_property name="ObjectShortName">testSampleRead[17:0]</obj_property>
+      <obj_property name="Radix">UNSIGNEDDECRADIX</obj_property>
+   </wvobject>
    <wvobject type="array" fp_name="/flight__tb/dut/gyro_rates_raw">
       <obj_property name="ElementShortName">gyro_rates_raw[2:0][31:0]</obj_property>
       <obj_property name="ObjectShortName">gyro_rates_raw[2:0][31:0]</obj_property>
-      <obj_property name="isExpanded"></obj_property>
-      <wvobject type="array" fp_name="/flight__tb/dut/gyro_rates_raw[2]">
-         <obj_property name="ElementShortName">[2][31:0]</obj_property>
-         <obj_property name="ObjectShortName">[2][31:0]</obj_property>
-         <obj_property name="Radix">REALRADIX</obj_property>
-         <obj_property name="radix_realType">SIGNEDFIXEDPOINTRADIX</obj_property>
-         <obj_property name="radix_fractionWidth">28</obj_property>
-         <obj_property name="radix_otherWidth">0</obj_property>
-         <obj_property name="WaveformStyle">STYLE_ANALOG</obj_property>
-         <obj_property name="CellHeight">100</obj_property>
-         <obj_property name="AnalogYRangeType">ANALOG_YRANGETYPE_AUTO</obj_property>
-         <obj_property name="AnalogYRangeMin">0.000000</obj_property>
-         <obj_property name="AnalogYRRangeMax">0.000000</obj_property>
-         <obj_property name="AnalogInterpolation">ANALOG_INTERPOLATION_HOLD</obj_property>
-         <obj_property name="AnalogOffscale">ANALOG_OFFSCALE_HIDE</obj_property>
-         <obj_property name="AnalogHorizLine">0.000000</obj_property>
-      </wvobject>
-      <wvobject type="array" fp_name="/flight__tb/dut/gyro_rates_raw[1]">
-         <obj_property name="ElementShortName">[1][31:0]</obj_property>
-         <obj_property name="ObjectShortName">[1][31:0]</obj_property>
-         <obj_property name="Radix">REALRADIX</obj_property>
-         <obj_property name="radix_realType">SIGNEDFIXEDPOINTRADIX</obj_property>
-         <obj_property name="radix_fractionWidth">28</obj_property>
-         <obj_property name="radix_otherWidth">0</obj_property>
-         <obj_property name="WaveformStyle">STYLE_ANALOG</obj_property>
-         <obj_property name="CellHeight">100</obj_property>
-         <obj_property name="AnalogYRangeType">ANALOG_YRANGETYPE_AUTO</obj_property>
-         <obj_property name="AnalogYRangeMin">0.000000</obj_property>
-         <obj_property name="AnalogYRRangeMax">0.000000</obj_property>
-         <obj_property name="AnalogInterpolation">ANALOG_INTERPOLATION_HOLD</obj_property>
-         <obj_property name="AnalogOffscale">ANALOG_OFFSCALE_HIDE</obj_property>
-         <obj_property name="AnalogHorizLine">0.000000</obj_property>
-      </wvobject>
-      <wvobject type="array" fp_name="/flight__tb/dut/gyro_rates_raw[0]">
-         <obj_property name="ElementShortName">[0][31:0]</obj_property>
-         <obj_property name="ObjectShortName">[0][31:0]</obj_property>
-         <obj_property name="Radix">REALRADIX</obj_property>
-         <obj_property name="radix_realType">SIGNEDFIXEDPOINTRADIX</obj_property>
-         <obj_property name="radix_fractionWidth">28</obj_property>
-         <obj_property name="radix_otherWidth">0</obj_property>
-         <obj_property name="WaveformStyle">STYLE_ANALOG</obj_property>
-         <obj_property name="CellHeight">100</obj_property>
-         <obj_property name="AnalogYRangeType">ANALOG_YRANGETYPE_AUTO</obj_property>
-         <obj_property name="AnalogYRangeMin">0.000000</obj_property>
-         <obj_property name="AnalogYRRangeMax">0.000000</obj_property>
-         <obj_property name="AnalogInterpolation">ANALOG_INTERPOLATION_HOLD</obj_property>
-         <obj_property name="AnalogOffscale">ANALOG_OFFSCALE_HIDE</obj_property>
-         <obj_property name="AnalogHorizLine">0.000000</obj_property>
-      </wvobject>
    </wvobject>
    <wvobject type="array" fp_name="/flight__tb/dut/imu/rates_raw_roll">
       <obj_property name="ElementShortName">rates_raw_roll[31:0]</obj_property>
       <obj_property name="ObjectShortName">rates_raw_roll[31:0]</obj_property>
+      <obj_property name="Radix">SIGNEDDECRADIX</obj_property>
       <obj_property name="WaveformStyle">STYLE_ANALOG</obj_property>
       <obj_property name="CellHeight">100</obj_property>
-      <obj_property name="Radix">REALRADIX</obj_property>
-      <obj_property name="radix_realType">SIGNEDFIXEDPOINTRADIX</obj_property>
-      <obj_property name="radix_fractionWidth">28</obj_property>
-      <obj_property name="radix_otherWidth">0</obj_property>
       <obj_property name="AnalogYRangeType">ANALOG_YRANGETYPE_AUTO</obj_property>
       <obj_property name="AnalogYRangeMin">0.000000</obj_property>
       <obj_property name="AnalogYRRangeMax">0.000000</obj_property>
@@ -200,9 +213,9 @@
       <obj_property name="radix_realType">SIGNEDFIXEDPOINTRADIX</obj_property>
       <obj_property name="radix_fractionWidth">28</obj_property>
       <obj_property name="radix_otherWidth">0</obj_property>
-      <obj_property name="AnalogYRangeType">ANALOG_YRANGETYPE_AUTO</obj_property>
-      <obj_property name="AnalogYRangeMin">0.000000</obj_property>
-      <obj_property name="AnalogYRRangeMax">0.000000</obj_property>
+      <obj_property name="AnalogYRangeType">ANALOG_YRANGETYPE_FIXED</obj_property>
+      <obj_property name="AnalogYRangeMin">-1.000000</obj_property>
+      <obj_property name="AnalogYRRangeMax">1.000000</obj_property>
       <obj_property name="AnalogInterpolation">ANALOG_INTERPOLATION_HOLD</obj_property>
       <obj_property name="AnalogOffscale">ANALOG_OFFSCALE_HIDE</obj_property>
       <obj_property name="AnalogHorizLine">0.000000</obj_property>

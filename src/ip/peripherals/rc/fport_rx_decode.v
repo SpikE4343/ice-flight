@@ -1,8 +1,59 @@
+// * F-Port RC protocol decoder
+
+//-----------------------------------------------
+
+// * C struct for fport Control Frame
+// typedef struct
+// {
+//   uint16_t channel0 : 11;
+//   uint16_t channel1 : 11;
+//   uint16_t channel2 : 11;
+//   uint16_t channel3 : 11;
+//   uint16_t channel4 : 11;
+//   uint16_t channel5 : 11;
+//   uint16_t channel6 : 11;
+//   uint16_t channel7 : 11;
+//   uint16_t channel8 : 11;
+//   uint16_t channel9 : 11;
+//   uint16_t channel10 : 11;
+//   uint16_t channel11 : 11;
+//   uint16_t channel12 : 11;
+//   uint16_t channel13 : 11;
+//   uint16_t channel14 : 11;
+//   uint16_t channel15 : 11;
+//   uint8_t flags;
+//   uint8_t rssi;
+// } __attribute__((__packed__)) SbusChannels_t;
+
+// #define SBUS_MIN 192
+// #define SBUS_MAX 1792
+    
+//-----------------------------------------------
+
+//* TODO: 
+
+// * CRC validation and roll back
+// * Handle uplink and downlink frames
+// * Parse all controls (only first 5 currently)
+
+//----------------------------------------------- 
+
+//* DONE:
+
+//  * Block Ram for input storage
+//  * Parse packet payload as read from buffer
+
+//-----------------------------------------------
+
+
+`define FPORT_PACKET_HEADER 8'h7E
+`define FPORT_PACKET_FOOTER 8'h7E
 
 module fport_rx_decoder
 #(
   parameter BASE_FREQ=16000000,
-  parameter DEPTH = 32
+  parameter DEPTH = 64,
+  parameter TIMEOUT_COUNT=BASE_FREQ
 )
 (
   input reset,
@@ -11,9 +62,6 @@ module fport_rx_decoder
   input rxDataAvail,
   output reg controlFrameReady,
   output reg frameRecv,
-
-  output debug_out,
-
   output reg [10:0] controls0,
   output reg [10:0] controls1,
   output reg [10:0] controls2,
@@ -22,22 +70,23 @@ module fport_rx_decoder
 
   output reg [7:0] rssi,
   output reg failsafe,
-  output reg rxFrameLoss
+  output reg rxFrameLoss,
+
+  output [3:0] state_debug
 );
 
   localparam DEPTH_BIT = $clog2(DEPTH)-1;
-  localparam PACKET_HEADER = 8'h7E;
-  localparam PACKET_FOOTER = 8'h7E;
- 
-  localparam ST_FIND_HEADER = 4'd1;
-  localparam ST_READ_HEADER = 4'd2;
-  localparam ST_PARSE_HEADER = 4'd3;
-  localparam ST_FIND_FOOTER = 4'd4;
-  localparam ST_PARSE_DATA  = 4'd5;
-  localparam ST_CONTROL_FRAME_READY = 4'd6;
-  localparam ST_RESET = 4'd0;
   
-  //packet_type != 8'b0 || packet_len != 8'h19
+ 
+  localparam ST_FIND_MARKER_START = 4'd2;
+  localparam ST_FIND_MARKER_END = 4'd3;
+  localparam ST_READ_HEADER_LENGTH = 4'd4;
+  localparam ST_READ_HEADER_TYPE = 4'd5;
+  localparam ST_READ_PAYLOAD  = 4'd6;
+  localparam ST_READ_CRC  = 4'd7;
+
+  localparam ST_CONTROL_FRAME_READY = 4'd1;
+  localparam ST_RESET = 4'd0;
 
   localparam LEN_OFFSET = 5'd1;
   localparam TYPE_OFFSET = 5'd2;
@@ -56,59 +105,52 @@ module fport_rx_decoder
 
   localparam HEADER_LEN = 5'd3;
   
-  localparam TIMEOUT_COUNT = BASE_FREQ;
   
-  // TODO: Use ram instead?
-  reg [7:0] controlPacket [DEPTH-1:0]; 
 
-  reg [DEPTH_BIT:0] read_addr;
-  reg [DEPTH_BIT:0] write_addr;
-  reg [DEPTH_BIT:0] fifo_size;
+
   (* mark_debug = "true" *) reg [3:0] state;
-  reg [3:0] postReadState;
-  reg [7:0] data;
-  reg [DEPTH_BIT:0] packet_start;
-  reg [DEPTH_BIT:0] packet_end;
+  
   reg [7:0] packet_len;
   reg [7:0] packet_type;
   reg [7:0] packet_crc;
-  reg [DEPTH_BIT:0] packet_data_start;
-  reg [7:0] data_read_len;
   
   reg [31:0] timeout_counter;
 
   reg [3:0] waitDelay;
   reg unmask;
 
-  
-  function automatic [DEPTH_BIT:0] PacketData;
-    input [DEPTH_BIT:0] offset;
-    begin
-      PacketData = packet_data_start + offset;
-    end
-  endfunction
+  reg [7:0] packet_data_read;
+  wire [7:0] fifo_write_data;
+  wire [7:0] fifo_read_data;
 
-  function automatic [10:0] ReverseControlValue;
-    input [10:0] value;
-    begin
-      ReverseControlValue[0] = value[10];
-      ReverseControlValue[1] = value[9];
-      ReverseControlValue[2] = value[8];
-      ReverseControlValue[3] = value[7];
-      ReverseControlValue[4] = value[6];
-      ReverseControlValue[5] = value[5];
-      ReverseControlValue[6] = value[4];
-      ReverseControlValue[7] = value[3];
-      ReverseControlValue[8] = value[2];
-      ReverseControlValue[9] = value[1];
-      ReverseControlValue[10] = value[0];
-    end
-  endfunction
+  reg fifo_read;
+  reg fifo_write;
+  wire fifo_has_data;
+
+
+  FIFODualPort
+ #(
+    .DEPTH(DEPTH),
+    .DATA_WIDTH(8)
+ ) inputFIFO (
+   .reset(reset),
+   .write_clk(rxDataAvail),
+   .write(rxDataAvail),
+   .write_data(fifo_write_data),
+
+   .read_clk(clock),
+   .read(fifo_read),
+   .read_data(fifo_read_data),
+
+   .dataAvailable(fifo_has_data)
+ );
+
+
+  assign fifo_write_data = unmask ? rxData ^ 8'h20 : rxData;
+  assign state_debug = state;
 
 
   initial begin
-    read_addr = 0;
-    write_addr = 0;
     state = ST_RESET;
     controlFrameReady = 0;
     frameRecv = 0;
@@ -118,220 +160,242 @@ module fport_rx_decoder
     controls3 = 0;
     controls4 = 0;
     rssi = 0;
+
     rxFrameLoss = 1;
-    failsafe = 0;
+    failsafe = 1;
     unmask = 0;
     timeout_counter = TIMEOUT_COUNT;
     waitDelay = 0;
+    fifo_read = 0;
+    fifo_write = 0;
+    packet_data_read = 0;
   end
 
 
 
   always @(posedge rxDataAvail) begin
-      if(unmask) begin
-        unmask <= 0;
-        controlPacket[write_addr] <= rxData ^ 8'h20;
-        write_addr <= write_addr + 1;
-      //$display("rxData ", rxData);
-      end else if( (data_read_len-HEADER_LEN) < packet_len  && state == ST_FIND_FOOTER && (rxData == 'h7D || rxData == 'h7E) ) begin
+      
+      if( (state == ST_READ_PAYLOAD  || state == ST_READ_CRC )&& (rxData == 'h7D || rxData == 'h7E) ) begin
+        // next byte is the actual data but xor with 8'h20 and 
+        // we don't want this byte to count as valid
         unmask <= 1;
       end else begin
         unmask <= 0;
-        controlPacket[write_addr] <= rxData;
-        write_addr <= write_addr + 1;
       end
   end
     
+
   always @(posedge clock) begin
     if(reset) begin
         state <= ST_RESET;
         timeout_counter <= TIMEOUT_COUNT;
+        fifo_read <= 0;
     end else begin
-    
-        if( timeout_counter == 0 ) begin
-            state <= ST_RESET;
-        end else begin
-            timeout_counter <= timeout_counter - 1;
-        end
-        case(state)
-          // ======================================
-          ST_FIND_HEADER: begin
-            if( read_addr != write_addr ) begin
-              timeout_counter <= TIMEOUT_COUNT;
-              if( controlPacket[read_addr] == PACKET_HEADER ) begin
-                // keep skipping packet header byte until next byte is not the header
-                packet_start <= read_addr;
-                //$display("packet_start: ", read_addr, ",", read_addr + HEADER_LEN);
-                packet_data_start <= read_addr + HEADER_LEN;
-                data_read_len <= 1;
-              end else if( data_read_len == 1) begin 
-                state <= ST_READ_HEADER;
-                data_read_len <= data_read_len + 1;
-              end 
-              // else begin
-              //   data_read_len <= data_read_len + 1;
-              // end
-    
-              read_addr <= read_addr + 1;
-            end
-          end
-    
-          // ======================================
-          ST_READ_HEADER: begin
-            if( read_addr != write_addr ) begin
-              timeout_counter <= TIMEOUT_COUNT;
-              if( read_addr == packet_data_start - 5'd1 ) begin
-                //packet_end <= read_addr;
-                state <= ST_PARSE_HEADER;
-              end
-    
-              data_read_len <= data_read_len + 1;
-              read_addr <= read_addr + 1;
-    
-            end
-          end
-          
-          // ======================================
-          ST_FIND_FOOTER: begin
-            if( read_addr != write_addr ) begin
-              timeout_counter <= TIMEOUT_COUNT;
-              if( controlPacket[read_addr] == PACKET_HEADER ) begin
-                packet_end <= read_addr;
-                state <= ST_PARSE_DATA;
-              end else if( data_read_len > packet_len + HEADER_LEN * 2) begin
-                state <= ST_RESET;
-              end
-    
-              data_read_len <= data_read_len + 1;
-              read_addr <= read_addr + 1;
-    
-            end
-          end
-          
-          // ======================================
-          ST_PARSE_HEADER: begin
-            packet_len <= controlPacket[packet_start + LEN_OFFSET];
-            packet_type <= controlPacket[packet_start + TYPE_OFFSET];
-            //packet_crc <= controlPacket[ packet_start + TYPE_OFFSET + controlPacket[packet_start + LEN_OFFSET] + 1];
-            state <= ST_FIND_FOOTER;
-            
-          end
-    
-          // ======================================
-          ST_PARSE_DATA: begin
-            waitDelay <= 4'd8;
-            case(packet_type)
-              FRAME_TYPE_CONTROL: begin
-                if(packet_len != FRAME_LEN_CONTROL) 
-                begin
-                  state <= ST_RESET;
-                end else begin
-                  // TODO: look up generator/for - loop? method for unpacking little endian c struct:
-                  // typedef struct
-                  // {
-                  //   uint16_t channel0 : 11;
-                  //   uint16_t channel1 : 11;
-                  //   uint16_t channel2 : 11;
-                  //   uint16_t channel3 : 11;
-                  //   uint16_t channel4 : 11;
-                  //   uint16_t channel5 : 11;
-                  //   uint16_t channel6 : 11;
-                  //   uint16_t channel7 : 11;
-                  //   uint16_t channel8 : 11;
-                  //   uint16_t channel9 : 11;
-                  //   uint16_t channel10 : 11;
-                  //   uint16_t channel11 : 11;
-                  //   uint16_t channel12 : 11;
-                  //   uint16_t channel13 : 11;
-                  //   uint16_t channel14 : 11;
-                  //   uint16_t channel15 : 11;
-                  //   uint8_t flags;
-                  //   uint8_t rssi;
-                  // } __attribute__((__packed__)) SbusChannels_t;
-    
-                  // #define SBUS_MIN 192
-                  // #define SBUS_MAX 1792
-    
-                  // Controls 1-16
-                  controls0 <= 
-                    { 
-                      controlPacket[PacketData(1)][2:0],
-                      controlPacket[PacketData(0)]
-                  };
-                  
-                  controls1 <= { 
-                    controlPacket[PacketData(2)][5:0],
-                    controlPacket[PacketData(1)][7:3]
-                  };
-    
-                  controls2 <= {
-                    controlPacket[PacketData(4)][0:0],
-                    controlPacket[PacketData(3)],
-                    controlPacket[PacketData(2)][7:6]  
-                  };
-                    
-                  controls3 <={ 
-                    controlPacket[PacketData(5)][3:0],  
-                    controlPacket[PacketData(4)][7:1]
-                  };
-    
-                  controls4 <= { 
-                    controlPacket[PacketData(6)][6:0],
-                    controlPacket[PacketData(5)][7:4]
-                  };
-    
-                    
-                  // [22] Flags
-                  rxFrameLoss <= controlPacket[PacketData(22)][2:2];
-                  failsafe <= controlPacket[PacketData(22)][3:3];
-                  
-                  // [23] RSSI 
-                  rssi <= controlPacket[PacketData(23)];  
-                  
-                  state <= ST_CONTROL_FRAME_READY;
-                  controlFrameReady <= 1;
-                end
-              end
-              
-              FRAME_TYPE_DOWNLINK: begin
-                state <= ST_CONTROL_FRAME_READY;
-              end
-    
-              FRAME_TYPE_UPLINK: begin
-                state <= ST_CONTROL_FRAME_READY;
-              end
-    
-              default : begin
-                state <= ST_RESET;
-              end
-            endcase
-//           end
+      if( timeout_counter == 0 ) begin
+          state <= ST_RESET;
+          // Signal failsafe if connection to rx has timed out
+          rssi <= 0;
+          failsafe <= 1;
+          rxFrameLoss <= 1;
+      end else begin
+          timeout_counter <= timeout_counter - 1;
       end
 
-          // ======================================
-          ST_CONTROL_FRAME_READY: begin
-            // debug_byte <= controls0;
-            // debug_send <= 1;
-            waitDelay <= waitDelay - 1;
-            if(waitDelay == 0 ) begin
-                state <= ST_RESET;
-            end
-          end
-    
-          // ======================================
-          ST_RESET: begin
-            state <= ST_FIND_HEADER;
-            data_read_len <= 0;
-            packet_len <= 0;
-            packet_start <= 0;
-            packet_end <= 0;
-            packet_type <= 0;
-            packet_data_start <= 0;
-            controlFrameReady <= 0;
-            frameRecv <= 0;
+        if(fifo_read == 1)
+          fifo_read <= 0;
+
+      case(state)
+      
+
+        // ======================================
+        // Read from fifo, until read data is PACKET_HEADER value
+        //
+        ST_FIND_MARKER_START: begin
+          if( fifo_has_data && ~fifo_read) begin
             timeout_counter <= TIMEOUT_COUNT;
+            if( fifo_read_data == `FPORT_PACKET_HEADER ) begin
+              state <= ST_FIND_MARKER_END;
+            end
+
+            fifo_read <= 1;
           end
-        endcase
+        end
+
+        // ======================================
+        // Read from fifo, until read data is not PACKET_HEADER value
+        //
+        ST_FIND_MARKER_END: begin
+          if( fifo_has_data && ~fifo_read) begin
+            timeout_counter <= TIMEOUT_COUNT;
+            if( fifo_read_data == `FPORT_PACKET_HEADER ) begin
+              // keep skipping packet header byte until next byte is not 
+              // the header
+              fifo_read <= 1;
+            end else begin 
+              // don't pop fifo so next state can do it
+              state <= ST_READ_HEADER_LENGTH;
+            end 
+          end
+        end
+
+        // ======================================
+        // Read from fifo, until read data is not PACKET_HEADER value
+        //
+        ST_READ_HEADER_LENGTH: begin
+          if( fifo_has_data && ~fifo_read ) begin
+            timeout_counter <= TIMEOUT_COUNT;
+            packet_len <= fifo_read_data;
+            fifo_read <= 1;
+            state <= ST_READ_HEADER_TYPE;
+          end
+        end
+
+        // ======================================
+        // Read packet type byte
+        //
+        ST_READ_HEADER_TYPE: begin
+          if( fifo_has_data && ~fifo_read ) begin
+            timeout_counter <= TIMEOUT_COUNT;
+            fifo_read <= 1;
+
+            // Only care about control frames for now. 
+            if( fifo_read_data != FRAME_TYPE_CONTROL) begin
+              state <= ST_RESET;
+              frameRecv <= 1;
+            end else begin
+              packet_type <= fifo_read_data;
+              packet_data_read <= 0;
+              state <= ST_READ_PAYLOAD;
+            end
+            
+          end
+        end
+  
+        // ======================================
+        // Read and parse all packed data
+        //
+        ST_READ_PAYLOAD: begin
+          if(packet_data_read > packet_len) begin
+              // done reading all payload data now read crc byte
+              state <= ST_READ_CRC;
+          end else if( fifo_has_data && ~fifo_read ) begin
+            timeout_counter <= TIMEOUT_COUNT;
+
+            packet_data_read <= packet_data_read + 1;
+            
+            case(packet_data_read)
+              8'd00:
+                begin
+                  // lower byte
+                  controls0[7:0] <= fifo_read_data;
+                end
+
+              8'd01:
+                begin
+                  // upper 2 bits of controls0
+                  controls0[10:8] <= fifo_read_data[2:0];
+                  
+                  // lower 5 bits of controls1
+                  controls1[4:0] <= fifo_read_data[7:3];
+                end
+
+              8'd02:
+                begin
+                  // upper 5 bits of controls1
+                  controls1[10:5] <= fifo_read_data[5:0];
+                  
+                  // lower 2 bits of controls2
+                  controls2[1:0] <= fifo_read_data[7:6];
+                end
+
+              8'd03:
+                begin
+                  // middle 8 bits of controls2
+                  controls2[9:2] <= fifo_read_data;
+                end
+
+              8'd04:
+                begin
+                  // upper 1 bit of controls2
+                  controls2[10] <= fifo_read_data[0];
+                  controls3[6:0] <= fifo_read_data[7:1];
+                end
+
+              8'd05:
+                begin
+                  // upper 4 bit of controls3
+                  controls3[10:7] <= fifo_read_data[3:0];
+                  controls4[3:0] <= fifo_read_data[7:4];
+                end
+
+              8'd06:
+                begin
+                  // upper 4 bit of controls3
+                  controls4[10:4] <= fifo_read_data[6:0];
+                end
+
+              // TODO: add rest of controls
+              8'd22:
+                begin
+                  // upper 4 bit of controls3
+                  rxFrameLoss <= fifo_read_data[2];
+                  failsafe <= fifo_read_data[3];
+                end
+
+              8'd23:
+                begin
+                  rssi <= fifo_read_data;
+                end
+
+              default: 
+                begin
+                  // skip
+                end
+            endcase
+
+            fifo_read <= 1;
+          end
+        end
+        
+        // ======================================
+        // Read crc byte
+        //
+        ST_READ_CRC: begin
+          if( fifo_has_data && ~fifo_read ) begin
+            timeout_counter <= TIMEOUT_COUNT;
+            packet_crc <= fifo_read_data;
+            // TODO: reset if crc doesn't match
+            fifo_read <= 1;
+            state <= ST_CONTROL_FRAME_READY;
+            controlFrameReady <= 1;
+            frameRecv <= 1;
+            waitDelay <= 16'd1;
+          end
+        end
+  
+        // ======================================
+        // Signal new control data available
+        // 
+        ST_CONTROL_FRAME_READY: begin
+          if(waitDelay == 16'd0 ) begin
+              state <= ST_RESET;
+          end
+          waitDelay <= waitDelay - 16'd1;
+        end
+  
+        // ======================================
+        // Start the whole thing over
+        //
+        ST_RESET: begin
+          state <= ST_FIND_MARKER_START;
+          packet_len <= 0;
+          packet_type <= 0;
+          controlFrameReady <= 0;
+          frameRecv <= 0;
+          timeout_counter <= TIMEOUT_COUNT;
+          packet_data_read = 0;
+        end
+      endcase
     end
   end
  

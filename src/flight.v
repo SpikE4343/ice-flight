@@ -16,7 +16,7 @@ module flight
 //  parameter GYRO_UPDATE_HZ=50_000,
 // `else
   parameter FPORT_UART_BAUD=115200,
-  parameter MOTOR_UPDATE_HZ=1000,
+  parameter MOTOR_UPDATE_HZ=3000,
   parameter GYRO_UPDATE_HZ=32_000,
 // `endif
   
@@ -31,7 +31,8 @@ module flight
   
   parameter FIXED_WIDTH_BIT=31,
   parameter DEBUG_UART_BAUD=2_000_000,
-  parameter DEBUG_UPDATE_HZ=100
+  parameter DEBUG_UPDATE_HZ=1000,
+  parameter MOTOR_COUNT=4
 )(
     input CLK,    // 16MHz clock
 
@@ -50,7 +51,7 @@ module flight
 
     // Debug UART pins
     output DEBUG_UART_TX,
-    input DEBUG_UART_RX,
+    output DEBUG_UART_RX,
 
     // Motor outputs
     output MOTOR_1,
@@ -128,10 +129,14 @@ module flight
 
   reg [7:0] attitudeUpdateCounter; 
 
+  wire [3:0] fport_decode_state;
+
   assign w_debug_msg_send   = debug_msg_send;
   assign w_debug_msg_type   = debug_msg_type;
   assign w_debug_msg_length = debug_msg_length;
   assign w_debug_msg_data   = debug_msg_data;
+
+  assign DEBUG_UART_RX = rx_data_ready;
 
   localparam DEBUG_ST_RESET  = 0;
   localparam DEBUG_ST_WAIT   = 1;
@@ -165,6 +170,8 @@ module flight
 
   reg useGyro;
 
+  reg gyroUpdateHandled;
+
   localparam MAX_WAIT = 1023;
   reg [15:0] waitCount;
 
@@ -180,7 +187,7 @@ module flight
   function automatic signed [31:0] RxRangeInput;
     input [10:0] inputValue;
     begin
-      RxRangeInput = (((32'sd5 * inputValue) >>> 3) - 32'sd620) <<< 19;
+      RxRangeInput = (((32'sd5 * inputValue) >>> 3) - 32'sd620) <<< 14; // 19
     end
   endfunction
 
@@ -201,6 +208,13 @@ module flight
     end
   endfunction
 
+  localparam ST_RESET = 8'd0;
+  localparam ST_WAIT = 8'd1;
+  localparam ST_UPDATE_ATTITUDE = 8'd2;
+  localparam ST_UPDATE_MOTOR_MIX = 8'd3;
+  localparam ST_MOTOR_SATURATION = 8'd4;
+  localparam ST_CLEAN_MOTOR_OUTPUTS = 8'd5;
+  localparam ST_APPLY_UPDATES = 8'd6;
   
   // Motor index layout, up is forward
   //  3 ^ 1
@@ -252,10 +266,11 @@ module flight
     inputs[3] = 32'h0;
     inputs[4] = 32'h0;
     
-    fc_state = 0;
+    fc_state = ST_RESET;
     change_update_state = 1;
     update_attitude = 0;
     attitudeUpdateCounter = 8'h0;
+    gyroUpdateHandled = 0;
     waitCount = 0;
   end
 
@@ -276,13 +291,7 @@ module flight
   
   
 
-  localparam ST_RESET = 0;
-  localparam ST_WAIT = 1;
-  localparam ST_UPDATE_ATTITUDE = 2;
-  localparam ST_UPDATE_MOTOR_MIX = 3;
-  localparam ST_MOTOR_SATURATION = 4;
-  localparam ST_CLEAN_MOTOR_OUTPUTS = 5;
-  localparam ST_APPLY_UPDATES = 6;
+
   
   // * Main Loop: process gyro, rx, and attitude data to update motor controls
   always @(posedge clk) begin
@@ -452,20 +461,30 @@ module flight
       setpoint[INPUT_ROLL] <= RxRangeInput(controlInputs[INPUT_ROLL]);
       setpoint[INPUT_PITCH] <= RxRangeInput(controlInputs[INPUT_PITCH]);
       setpoint[INPUT_YAW] <= RxRangeInput(controlInputs[INPUT_YAW]);
+
     end
 
-    if(gyroSampleReady) begin
-      motor_send <= 1;
-      gyro_rates_sampled[0] <= gyro_rates_raw[0];// + gyro_rates_sampled[0]) >> 1;
-      gyro_rates_sampled[1] <= gyro_rates_raw[1];// + gyro_rates_sampled[1]) >> 1;
-      gyro_rates_sampled[2] <= gyro_rates_raw[2];// + gyro_rates_sampled[2]) >> 1;
+    if(gyroSampleReady)begin
+      if(gyroUpdateHandled == 0) begin
+        motor_send <= 1;
 
-      if(attitudeUpdateCounter == 8'h0) begin
-        attitudeUpdateCounter <= (GYRO_UPDATE_HZ / MOTOR_UPDATE_HZ) -1;
-        update_attitude <= ~update_attitude;
-      end else begin
-        attitudeUpdateCounter <= attitudeUpdateCounter - 1;
-      end  
+        flight_mem_addr <= 0;
+        flight_mem_write <= 1;
+        flight_mem_write_data <= gyro_rates_raw[0]; 
+        gyro_rates_sampled[0] <= gyro_rates_raw[0];// + gyro_rates_sampled[0]) >> 1;
+        gyro_rates_sampled[1] <= gyro_rates_raw[1];// + gyro_rates_sampled[1]) >> 1;
+        gyro_rates_sampled[2] <= gyro_rates_raw[2];// + gyro_rates_sampled[2]) >> 1;
+
+        if(attitudeUpdateCounter == 8'h0) begin
+          attitudeUpdateCounter <= (GYRO_UPDATE_HZ / MOTOR_UPDATE_HZ) -1;
+          update_attitude <= ~update_attitude;
+        end else begin
+          attitudeUpdateCounter <= attitudeUpdateCounter - 1;
+        end  
+      end
+      gyroUpdateHandled <= 1;
+    end else begin
+      gyroUpdateHandled <= 0;
     end
     
     if( w_debug_msg_data_load) 
@@ -474,10 +493,14 @@ module flight
         DEBUG_SEND_STATUS: 
         begin
           case(w_debug_msg_data_index)
-            8'd0: debug_msg_data <= fc_state;
+            8'd0: debug_msg_data <= rxFrameLoss;
             8'd1: debug_msg_data <= armed;
-            8'd2: debug_msg_data <= failsafe;
-            8'd3: debug_msg_data <= rxFrameLoss;
+            8'd2: debug_msg_data <= fc_state;
+            8'd3: debug_msg_data <= fc_state;
+            8'd4: debug_msg_data <= {4'h0, fport_decode_state};
+            8'd5: debug_msg_data <= 1;
+            8'd6: debug_msg_data <= 0;
+
 
           endcase
         end
@@ -511,23 +534,23 @@ module flight
           case(w_debug_msg_data_index)
             // * Throttle
             8'd0: debug_msg_data <= controlInputs[0][7:0];
-            8'd1: debug_msg_data <= { 5'h0, controlInputs[0][10:8]};
+            8'd1: debug_msg_data <= {{5{controlInputs[0][10]}},controlInputs[0][10:8]};
 
             // * Pitch
             8'd2: debug_msg_data <= controlInputs[1][7:0];
-            8'd3: debug_msg_data <= {5'h0, controlInputs[1][10:8]};
+            8'd3: debug_msg_data <= {{5{controlInputs[1][10]}},controlInputs[1][10:8]};
 
             // * Yaw
             8'd4: debug_msg_data <= controlInputs[2][7:0];
-            8'd5: debug_msg_data <= {5'h0, controlInputs[2][10:8]};
+            8'd5: debug_msg_data <= {{5{controlInputs[2][10]}},controlInputs[2][10:8]};
 
             // * Roll
             8'd6: debug_msg_data <= controlInputs[3][7:0];
-            8'd7: debug_msg_data <= { 5'h0, controlInputs[3][10:8]};
+            8'd7: debug_msg_data <= {{5{controlInputs[3][10]}},controlInputs[3][10:8]};
 
             // * Aux1
             8'd8: debug_msg_data <= controlInputs[4][7:0];
-            8'd9: debug_msg_data <= { 5'h0, controlInputs[4][10:8]};
+            8'd9: debug_msg_data <= {{5{controlInputs[4][10]}},controlInputs[4][10:8]};
 
             // * RSSI
             8'd10: debug_msg_data <= rssi;
@@ -644,8 +667,8 @@ module flight
     .txIn(w_debug_uart_byte),
     .txOut(DEBUG_UART_TX),
     .txSend(w_debug_uart_load),
-    .txSendComplete(w_debug_uart_complete),
-    .rxIn(DEBUG_UART_RX)
+    .txSendComplete(w_debug_uart_complete)
+    //.rxIn(DEBUG_UART_RX)
   );
 
   //========================================
@@ -688,9 +711,9 @@ module flight
     .sampleReady(gyroSampleReady)
   );
 
-  // //========================================
-  // // * RC Control Input 
-  // //========================================
+  //========================================
+  // * RC Control Input 
+  //========================================
   uart_rx #(
     .CLKS_PER_BIT(BASE_FREQ/FPORT_UART_BAUD)
   ) control_rx (
@@ -714,6 +737,7 @@ module flight
     .rssi(rssi),
     .failsafe(failsafe),
     .rxFrameLoss(rxFrameLoss),
+    .state_debug(fport_decode_state),
     .controls0(controlInputs[0]),
     .controls1(controlInputs[1]),
     .controls2(controlInputs[2]),
@@ -721,28 +745,64 @@ module flight
     .controls4(controlInputs[4])
   );
 
-  // ** Motor 1 Mixer
+
+  reg [31:0] flight_mem_write_data;
+  reg [31:0] flight_mem_read_data;
+  wire [31:0] flight_mem_read_data_w;
+  wire [31:0] flight_mem_write_data_w;
+  reg [4:0] flight_mem_addr; 
+  
+  reg flight_mem_read;
+  reg flight_mem_write;
+  wire flight_mem_has_data;
+
+  assign flight_mem_read_data_w = flight_mem_read_data;
+  assign flight_mem_write_data_w = flight_mem_write_data;
+
+  BlockMemorySinglePort #(
+      .DEPTH(32),
+      .DATA_WIDTH(32)
+  ) flight_data (
+  .clk(clk),
+  .reset(reset),
+  .write(flight_mem_write),
+  .address(flight_mem_addr),
+  .value(flight_mem_write_data_w),
+  .data(flight_mem_read_data_w)
+);
+
+
+  // TODO: use generate statement for mixers
+
+  integer motorMix [0:4][0:3];
+  
+  
+  initial begin
+    motorMix[0][INPUT_THROTTLE] = 1 <<< 28;
+    motorMix[0][INPUT_ROLL] = 1 <<< 28;
+    motorMix[0][INPUT_PITCH] = -1 <<< 28;
+    motorMix[0][INPUT_YAW] = -1 <<< 28;
+
+    motorMix[1][INPUT_THROTTLE] = 1 <<< 28;
+    motorMix[1][INPUT_ROLL] = 1 <<< 28;
+    motorMix[1][INPUT_PITCH] = 1 <<< 28;
+    motorMix[1][INPUT_YAW] = 1 <<< 28;
+
+    motorMix[2][INPUT_THROTTLE] = 1 <<< 28;
+    motorMix[2][INPUT_ROLL] = -1 <<< 28;
+    motorMix[2][INPUT_PITCH] = -1 <<< 28;
+    motorMix[2][INPUT_YAW] = 1 <<< 28;
+
+    motorMix[3][INPUT_THROTTLE] = 1 <<< 28;
+    motorMix[3][INPUT_ROLL] = -1 <<< 28;
+    motorMix[3][INPUT_PITCH] = 1 <<< 28;
+    motorMix[3][INPUT_YAW] = -1 <<< 28;
+  end
+
   localparam motorMix_0_INPUT_THROTTLE = 1 <<< 28;
   localparam motorMix_0_INPUT_ROLL = 1 <<< 28;
   localparam motorMix_0_INPUT_PITCH = -1 <<< 28;
   localparam motorMix_0_INPUT_YAW = -1 <<< 28;
-
-  motor_mixer #(
-    .MOTOR_INDEX(0),
-    .ROLL_MIX(motorMix_0_INPUT_ROLL),
-    .PITCH_MIX(motorMix_0_INPUT_PITCH),
-    .YAW_MIX(motorMix_0_INPUT_YAW),
-    .THROTTLE_MIX(motorMix_0_INPUT_THROTTLE)
-  ) motorMixer1 (
-    .armed(armed),
-    .failsafe(failsafe),
-    .inputs_roll(inputs[INPUT_ROLL]),
-    .inputs_pitch(inputs[INPUT_PITCH]),
-    .inputs_yaw(inputs[INPUT_YAW]),
-    .inputs_throttle(inputs[INPUT_THROTTLE]),
-    .mixedThrottle(mixedThrottle[0])
-  );
-
 
   // ** Motor 2 Mixer
   localparam motorMix_1_INPUT_THROTTLE = 1 <<< 28;
@@ -750,120 +810,186 @@ module flight
   localparam motorMix_1_INPUT_PITCH = 1 <<< 28;
   localparam motorMix_1_INPUT_YAW = 1 <<< 28;
 
-  motor_mixer #(
-    .MOTOR_INDEX(1),
-    .ROLL_MIX(motorMix_1_INPUT_ROLL),
-    .PITCH_MIX(motorMix_1_INPUT_PITCH),
-    .YAW_MIX(motorMix_1_INPUT_YAW),
-    .THROTTLE_MIX(motorMix_1_INPUT_THROTTLE)
-  ) motorMixer2 (
-    .armed(armed),
-    .failsafe(failsafe),
-    .inputs_roll(inputs[INPUT_ROLL]),
-    .inputs_pitch(inputs[INPUT_PITCH]),
-    .inputs_yaw(inputs[INPUT_YAW]),
-    .inputs_throttle(inputs[INPUT_THROTTLE]),
-    .mixedThrottle(mixedThrottle[1])
-  );
-
-  // ** Motor 3 Mixer
+   // ** Motor 3 Mixer
   localparam motorMix_2_INPUT_THROTTLE = 1 <<< 28;
   localparam motorMix_2_INPUT_ROLL = -1 <<< 28;
   localparam motorMix_2_INPUT_PITCH = -1 <<< 28;
   localparam motorMix_2_INPUT_YAW =1 <<< 28;
 
-  motor_mixer #(
-    .MOTOR_INDEX(2),
-    .ROLL_MIX(motorMix_2_INPUT_ROLL),
-    .PITCH_MIX(motorMix_2_INPUT_PITCH),
-    .YAW_MIX(motorMix_2_INPUT_YAW),
-    .THROTTLE_MIX(motorMix_2_INPUT_THROTTLE)
-  ) motorMixer3 (
-    .armed(armed),
-    .failsafe(failsafe),
-    .inputs_roll(inputs[INPUT_ROLL]),
-    .inputs_pitch(inputs[INPUT_PITCH]),
-    .inputs_yaw(inputs[INPUT_YAW]),
-    .inputs_throttle(inputs[INPUT_THROTTLE]),
-    .mixedThrottle(mixedThrottle[2])
-  );
-
-  // ** Motor 3 Mixer
+  // ** Motor 4 Mixer
   localparam motorMix_3_INPUT_THROTTLE = 1 <<< 28;
   localparam motorMix_3_INPUT_ROLL = -1 <<< 28;
   localparam motorMix_3_INPUT_PITCH = 1 <<< 28;
   localparam motorMix_3_INPUT_YAW = -1 <<< 28;
 
-  motor_mixer #(
-    .MOTOR_INDEX(3),
-    .ROLL_MIX(motorMix_3_INPUT_ROLL),
-    .PITCH_MIX(motorMix_3_INPUT_PITCH),
-    .YAW_MIX(motorMix_3_INPUT_YAW),
-    .THROTTLE_MIX(motorMix_3_INPUT_THROTTLE)
-  ) motorMixer4 (
-    .armed(armed),
-    .failsafe(failsafe),
-    .inputs_roll(inputs[INPUT_ROLL]),
-    .inputs_pitch(inputs[INPUT_PITCH]),
-    .inputs_yaw(inputs[INPUT_YAW]),
-    .inputs_throttle(inputs[INPUT_THROTTLE]),
-    .mixedThrottle(mixedThrottle[3])
-  );
+  `define MOTOR_MIX_CONSTANT(x, i) {"motorMix_",x,"_",i}
+
+  genvar m;
+  generate
+    for (m=MOTOR_COUNT-1; m >= 0; m=m-1) begin : motor_mixers
+      motor_mixer #(
+        .MOTOR_INDEX(m),
+        .ROLL_MIX(`MOTOR_MIX_CONSTANT(m,INPUT_ROLL)),
+        .PITCH_MIX(`MOTOR_MIX_CONSTANT(m,INPUT_PITCH)),
+        .YAW_MIX(`MOTOR_MIX_CONSTANT(m,INPUT_YAW)),
+        .THROTTLE_MIX(`MOTOR_MIX_CONSTANT(m,INPUT_THROTTLE))
+      ) motorMixer (
+        .armed(armed),
+        .failsafe(failsafe),
+        .inputs_roll(inputs[INPUT_ROLL]),
+        .inputs_pitch(inputs[INPUT_PITCH]),
+        .inputs_yaw(inputs[INPUT_YAW]),
+        .inputs_throttle(inputs[INPUT_THROTTLE]),
+        .mixedThrottle(mixedThrottle[m])
+      );
+    end : motor_mixers
+  endgenerate
+
+  // // ** Motor 1 Mixer
+  
+
+  // motor_mixer #(
+  //   .MOTOR_INDEX(0),
+  //   .ROLL_MIX(motorMix_0_INPUT_ROLL),
+  //   .PITCH_MIX(motorMix_0_INPUT_PITCH),
+  //   .YAW_MIX(motorMix_0_INPUT_YAW),
+  //   .THROTTLE_MIX(motorMix_0_INPUT_THROTTLE)
+  // ) motorMixer1 (
+  //   .armed(armed),
+  //   .failsafe(failsafe),
+  //   .inputs_roll(inputs[INPUT_ROLL]),
+  //   .inputs_pitch(inputs[INPUT_PITCH]),
+  //   .inputs_yaw(inputs[INPUT_YAW]),
+  //   .inputs_throttle(inputs[INPUT_THROTTLE]),
+  //   .mixedThrottle(mixedThrottle[0])
+  // );
+
+
+  
+
+  // motor_mixer #(
+  //   .MOTOR_INDEX(1),
+  //   .ROLL_MIX(motorMix_1_INPUT_ROLL),
+  //   .PITCH_MIX(motorMix_1_INPUT_PITCH),
+  //   .YAW_MIX(motorMix_1_INPUT_YAW),
+  //   .THROTTLE_MIX(motorMix_1_INPUT_THROTTLE)
+  // ) motorMixer2 (
+  //   .armed(armed),
+  //   .failsafe(failsafe),
+  //   .inputs_roll(inputs[INPUT_ROLL]),
+  //   .inputs_pitch(inputs[INPUT_PITCH]),
+  //   .inputs_yaw(inputs[INPUT_YAW]),
+  //   .inputs_throttle(inputs[INPUT_THROTTLE]),
+  //   .mixedThrottle(mixedThrottle[1])
+  // );
+
+ 
+
+  // motor_mixer #(
+  //   .MOTOR_INDEX(2),
+  //   .ROLL_MIX(motorMix_2_INPUT_ROLL),
+  //   .PITCH_MIX(motorMix_2_INPUT_PITCH),
+  //   .YAW_MIX(motorMix_2_INPUT_YAW),
+  //   .THROTTLE_MIX(motorMix_2_INPUT_THROTTLE)
+  // ) motorMixer3 (
+  //   .armed(armed),
+  //   .failsafe(failsafe),
+  //   .inputs_roll(inputs[INPUT_ROLL]),
+  //   .inputs_pitch(inputs[INPUT_PITCH]),
+  //   .inputs_yaw(inputs[INPUT_YAW]),
+  //   .inputs_throttle(inputs[INPUT_THROTTLE]),
+  //   .mixedThrottle(mixedThrottle[2])
+  // );
+
+  
+
+  // motor_mixer #(
+  //   .MOTOR_INDEX(3),
+  //   .ROLL_MIX(motorMix_3_INPUT_ROLL),
+  //   .PITCH_MIX(motorMix_3_INPUT_PITCH),
+  //   .YAW_MIX(motorMix_3_INPUT_YAW),
+  //   .THROTTLE_MIX(motorMix_3_INPUT_THROTTLE)
+  // ) motorMixer4 (
+  //   .armed(armed),
+  //   .failsafe(failsafe),
+  //   .inputs_roll(inputs[INPUT_ROLL]),
+  //   .inputs_pitch(inputs[INPUT_PITCH]),
+  //   .inputs_yaw(inputs[INPUT_YAW]),
+  //   .inputs_throttle(inputs[INPUT_THROTTLE]),
+  //   .mixedThrottle(mixedThrottle[3])
+  // );
 
 
   // * TODO: merge motor control into single 
   // *  module with multiple channels, one for each motor.
   // * This should save some register space since all outputs 
   // *  can be managed with a single counter/alarm pair
-  //========================================
-  // * Motor 1 Output
-  //========================================
-  motor_control #(
-    .BASE_FREQ(BASE_FREQ),
-    .DSHOT_FREQ(MOTOR_DSHOT_FREQ)
-  ) motor1 (
-    .clock(clk),
-    .command(motorThrottle[0][10:0]),
-    .send(motor_send),
-    .txOut(motorOutputs[0])
-  );
 
-  //========================================
-  // * Motor 2 Output
-  //========================================
-  motor_control #(
-    .BASE_FREQ(BASE_FREQ),
-    .DSHOT_FREQ(MOTOR_DSHOT_FREQ)
-  ) motor2 (
-    .clock(clk),
-    .command((motorThrottle[1][10:0])),
-    .send(motor_send),
-    .txOut(motorOutputs[1])
-  );
 
-  //========================================
-  // * Motor 3 Output
-  //========================================
-  motor_control #(
-    .BASE_FREQ(BASE_FREQ),
-    .DSHOT_FREQ(MOTOR_DSHOT_FREQ)
-  ) motor3 (
-    .clock(clk),
-    .command((motorThrottle[2][10:0])),
-    .send(motor_send),
-    .txOut(motorOutputs[2])
-  );
+  // genvar i;
+  generate
+    for (m=MOTOR_COUNT-1; m >= 0; m=m-1) begin : motor_chain
+      motor_control #(
+        .BASE_FREQ(BASE_FREQ),
+        .DSHOT_FREQ(MOTOR_DSHOT_FREQ)
+      ) motor1 (
+        .clock(clk),
+        .command(motorThrottle[m][10:0]),
+        .send(motor_send),
+        .txOut(motorOutputs[m])
+      );
+    end : motor_chain
+  endgenerate
 
-  //========================================
-  // * Motor 4 Output
-  //========================================
-  motor_control #(
-    .BASE_FREQ(BASE_FREQ),
-    .DSHOT_FREQ(MOTOR_DSHOT_FREQ)
-  ) motor4 (
-    .clock(clk),
-    .command((motorThrottle[3][10:0])),
-    .send(motor_send),
-    .txOut(motorOutputs[3])
-  );
+  // //========================================
+  // // * Motor 1 Output
+  // //========================================
+  // motor_control #(
+  //   .BASE_FREQ(BASE_FREQ),
+  //   .DSHOT_FREQ(MOTOR_DSHOT_FREQ)
+  // ) motor1 (
+  //   .clock(clk),
+  //   .command(motorThrottle[0][10:0]),
+  //   .send(motor_send),
+  //   .txOut(motorOutputs[0])
+  // );
+
+  // //========================================
+  // // * Motor 2 Output
+  // //========================================
+  // motor_control #(
+  //   .BASE_FREQ(BASE_FREQ),
+  //   .DSHOT_FREQ(MOTOR_DSHOT_FREQ)
+  // ) motor2 (
+  //   .clock(clk),
+  //   .command((motorThrottle[1][10:0])),
+  //   .send(motor_send),
+  //   .txOut(motorOutputs[1])
+  // );
+
+  // //========================================
+  // // * Motor 3 Output
+  // //========================================
+  // motor_control #(
+  //   .BASE_FREQ(BASE_FREQ),
+  //   .DSHOT_FREQ(MOTOR_DSHOT_FREQ)
+  // ) motor3 (
+  //   .clock(clk),
+  //   .command((motorThrottle[2][10:0])),
+  //   .send(motor_send),
+  //   .txOut(motorOutputs[2])
+  // );
+
+  // //========================================
+  // // * Motor 4 Output
+  // //========================================
+  // motor_control #(
+  //   .BASE_FREQ(BASE_FREQ),
+  //   .DSHOT_FREQ(MOTOR_DSHOT_FREQ)
+  // ) motor4 (
+  //   .clock(clk),
+  //   .command((motorThrottle[3][10:0])),
+  //   .send(motor_send),
+  //   .txOut(motorOutputs[3])
+  // );
 endmodule

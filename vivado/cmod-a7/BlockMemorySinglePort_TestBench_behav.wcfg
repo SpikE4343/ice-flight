@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wave_config>
+   <wave_state>
+   </wave_state>
+   <db_ref_list>
+      <db_ref path="BlockMemorySinglePort_TestBench_behav.wdb" id="1">
+         <top_modules>
+            <top_module name="BlockMemorySinglePort_TestBench" />
+            <top_module name="glbl" />
+         </top_modules>
+      </db_ref>
+   </db_ref_list>
+   <zoom_setting>
+      <ZoomStartTime time="267221fs"></ZoomStartTime>
+      <ZoomEndTime time="1146556fs"></ZoomEndTime>
+      <Cursor1Time time="1000000fs"></Cursor1Time>
+   </zoom_setting>
+   <column_width_setting>
+      <NameColumnWidth column_width="177"></NameColumnWidth>
+      <ValueColumnWidth column_width="116"></ValueColumnWidth>
+   </column_width_setting>
+   <WVObjectSize size="13" />
+   <wvobject type="logic" fp_name="/BlockMemorySinglePort_TestBench/clk">
+      <obj_property name="ElementShortName">clk</obj_property>
+      <obj_property name="ObjectShortName">clk</obj_property>
+   </wvobject>
+   <wvobject type="logic" fp_name="/BlockMemorySinglePort_TestBench/reset">
+      <obj_property name="ElementShortName">reset</obj_property>
+      <obj_property name="ObjectShortName">reset</obj_property>
+   </wvobject>
+   <wvobject type="logic" fp_name="/BlockMemorySinglePort_TestBench/write">
+      <obj_property name="ElementShortName">write</obj_property>
+      <obj_property name="ObjectShortName">write</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/BlockMemorySinglePort_TestBench/mem_address">
+      <obj_property name="ElementShortName">mem_address[7:0]</obj_property>
+      <obj_property name="ObjectShortName">mem_address[7:0]</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/BlockMemorySinglePort_TestBench/mem_read_data">
+      <obj_property name="ElementShortName">mem_read_data[7:0]</obj_property>
+      <obj_property name="ObjectShortName">mem_read_data[7:0]</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/BlockMemorySinglePort_TestBench/mem_write_data">
+      <obj_property name="ElementShortName">mem_write_data[7:0]</obj_property>
+      <obj_property name="ObjectShortName">mem_write_data[7:0]</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/BlockMemorySinglePort_TestBench/idx">
+      <obj_property name="ElementShortName">idx[31:0]</obj_property>
+      <obj_property name="ObjectShortName">idx[31:0]</obj_property>
+      <obj_property name="Radix">UNSIGNEDDECRADIX</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/BlockMemorySinglePort_TestBench/BASE_FREQ">
+      <obj_property name="ElementShortName">BASE_FREQ[31:0]</obj_property>
+      <obj_property name="ObjectShortName">BASE_FREQ[31:0]</obj_property>
+   </wvobject>
+   <wvobject type="logic" fp_name="/BlockMemorySinglePort_TestBench/block_mem/write">
+      <obj_property name="ElementShortName">write</obj_property>
+      <obj_property name="ObjectShortName">write</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/BlockMemorySinglePort_TestBench/block_mem/address">
+      <obj_property name="ElementShortName">address[2:0]</obj_property>
+      <obj_property name="ObjectShortName">address[2:0]</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/BlockMemorySinglePort_TestBench/block_mem/value">
+      <obj_property name="ElementShortName">value[7:0]</obj_property>
+      <obj_property name="ObjectShortName">value[7:0]</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/BlockMemorySinglePort_TestBench/block_mem/data">
+      <obj_property name="ElementShortName">data[7:0]</obj_property>
+      <obj_property name="ObjectShortName">data[7:0]</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/BlockMemorySinglePort_TestBench/block_mem/mem">
+      <obj_property name="ElementShortName">mem[7:0][7:0]</obj_property>
+      <obj_property name="ObjectShortName">mem[7:0][7:0]</obj_property>
+   </wvobject>
+</wave_config>

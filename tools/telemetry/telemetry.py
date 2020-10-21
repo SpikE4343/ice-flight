@@ -11,10 +11,15 @@ from pyqtgraph.Qt import QtGui, QtCore
 import pyqtgraph as pg
 import scipy.fftpack
 
-ser = serial.Serial(port='/dev/ttyUSB0', baudrate=2000000, stopbits=1)
-ser.flushInput()
+use_file = len(sys.argv) > 1
 
-size = 4096
+if use_file:
+    inputFile = open(sys.argv[1], "rb")
+else:
+    ser = serial.Serial(port='/dev/ttyUSB0', baudrate=2000000, stopbits=1)
+    ser.flushInput()
+
+size = 1024
 pause_time = 0.1
 
 msgGyro = struct.Struct('< i i i')
@@ -23,6 +28,8 @@ msgRx = struct.Struct('< H H H H H B B')
 msgMotor = struct.Struct('< i i i i')
 msgInput = struct.Struct('< i i i i i')
 msgSetpoint = struct.Struct('< i i i i i')
+
+msgStatus = struct.Struct('< B B B B B')
 
 x = np.arange(size)
 
@@ -62,10 +69,10 @@ for i in range(3):
 # GYRO FFT
 gyroFftPlot = pg.PlotWidget(name='Gyro FFT')
 gyroFftPlot.setLabel('left', 'Gyro Freq', units='hz')
-
 gyroFftCurves = []
 for i in range(3):
     c = pg.PlotDataItem(x, gyroFFtData[i], pen=(i, 3))
+
     gyroFftPlot.addItem(c)
     gyroFftCurves.append(c)
 
@@ -135,6 +142,18 @@ def last(l):
     return None
 
 
+def readData():
+    global readByteData
+    if use_file:
+        for d in inputFile.read():
+            readByteData.append(d)
+            print(d)
+
+    elif (ser.in_waiting > 0):
+        for d in ser.read(ser.in_waiting):
+            readByteData.append(d)
+
+
 def updateData():
     global readByteData
 
@@ -144,9 +163,7 @@ def updateData():
 
     # serialCurve.setData(serialBufferData)
 
-    if (ser.in_waiting > 0):
-        for d in ser.read(ser.in_waiting):
-            readByteData.append(d)
+    readData()
 
     readBufferLenData.append(len(readByteData))
     if (len(readBufferLenData) > size):
@@ -189,6 +206,11 @@ def updateData():
                 if (len(setpointData[i]) > size):
                     setpointData[i].pop(0)
                 # inputsCurves[i].setData(inputsData[i])
+        elif msgType == 5 and msgStatus.size == len(ser_bytes):
+          status = msgStatus.unpack(ser_bytes)
+          # print('status:')
+          # for i in range(len(status)):
+          #   print(status[i])
         # Gyro
         elif msgType == 4 and msgGyro.size == len(ser_bytes):
 
@@ -247,3 +269,5 @@ t.timeout.connect(updateData)
 t.start(1)
 
 app.exec()
+
+inputFile.close()

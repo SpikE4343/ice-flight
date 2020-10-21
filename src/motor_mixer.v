@@ -25,7 +25,7 @@ module motor_mixer
   localparam INPUT_ARM = 4;
 
   wire signed [31:0] mixed[3:0];
-  wire signed [31:0] mixedSum;
+  wire signed [31:0] mixedSum, mixedSum1, mixedSum2;
   wire signed [31:0] clamped;
   reg signed [31:0] motorThrottle;
 
@@ -71,13 +71,16 @@ module motor_mixer
     .mixedValue(mixed[INPUT_THROTTLE])
   );
 
-   assign mixedSum = mixed[INPUT_ROLL] 
-                   +  mixed[INPUT_PITCH] 
-                   +  mixed[INPUT_YAW] 
+   assign mixedSum1 = mixed[INPUT_ROLL] 
+                   +  mixed[INPUT_PITCH];
+                   
+   assign mixedSum2 = mixed[INPUT_YAW] 
                    +  mixed[INPUT_THROTTLE];
 
+   //assign mixedSum = ;
+   
   // ((mixedSum + 1 ) / 2) 
-  assign mixedThrottle = (armed && ~failsafe) ? mixedSum : 32'sd0;
+  assign mixedThrottle = (armed && ~failsafe) ? (mixedSum1 + mixedSum2) : 32'sd0;
 
   
 endmodule
@@ -92,7 +95,10 @@ module axis_scalar
   output signed [31:0] mixedValue
 );
   wire signed [63:0] temp;
+  wire signed [63:0] temp2;
+  
 
-  assign temp = (MIX_SCALAR) * inputs;
-  assign mixedValue = (temp >>> 28);
+  assign #10 temp = (MIX_SCALAR * inputs);
+  assign temp2 = temp >>> 28;
+  assign mixedValue = temp2[31:0];
 endmodule

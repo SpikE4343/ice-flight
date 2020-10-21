@@ -66,3 +66,4 @@ vivado/cmod-a7/cmod-a7*.*/
 vivado/vivado.runs/
 src/hardware.json
 src/hardware.rpt
+__pycache__/

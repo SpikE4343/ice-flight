@@ -1,6 +1,10 @@
 // look in pins.pcf for all the pin names on the TinyFPGA BX board
 
+`ifdef BUILD_APIO
 `include "ip/peripherals/imu/imu_defines.vh"
+`else
+`include "imu_defines.vh"
+`endif
 
 module imu_mpu_9250 
 #(
@@ -93,16 +97,20 @@ module imu_mpu_9250
   reg [7:0] imu_sample_state;
   integer i;
 
-  localparam SAMPLE_WORDS=744;
+  reg [15:0] raw_gyro_samples[2:0];
+
+  //localparam SAMPLE_WORDS=744;
+  localparam SAMPLE_WORDS=86313;
   `ifdef gyro_test_data
       reg signed [15:0] testSampleData[0:SAMPLE_WORDS-1];
-      reg [8:0] testSampleRead;
+      reg [17:0] testSampleRead;
   `endif
   
   initial begin
+    // TODO: investigate moving commands to memory file
     gyroConfigCmds[0] = { `MPU_RA_PWR_MGMT_1, `INV_CLK_PLL };
     gyroConfigCmds[1] = { `MPU_RA_GYRO_CONFIG, `INV_FSR_2000DPS << 3};
-    gyroConfigCmds[2] = { `MPU_RA_CONFIG, 8'h00 };//8'h07 };
+    gyroConfigCmds[2] = { `MPU_RA_CONFIG, 8'h07 };//8'h00 };
     gyroConfigCmds[3] = { `MPU_RA_SMPLRT_DIV, 8'h00 };
     gyroConfigCmds[4] = { `MPU_RA_ACCEL_CONFIG, `INV_FSR_16G << 3 };
     gyroConfigCmds[5] = { `MPU_RA_INT_PIN_CFG, 8'b00010010};
@@ -131,7 +139,8 @@ module imu_mpu_9250
 
     
     `ifdef gyro_test_data
-       $readmemh("mem-gyro-1024.txt", testSampleData);
+       //$readmemh("mem-gyro-1024.txt", testSampleData);
+       $readmemh("mem-gyro-86313.txt", testSampleData);
        testSampleRead = 0;
     `endif
   end 
@@ -364,19 +373,29 @@ module imu_mpu_9250
             // gyroSampleBuffer[sample_write+9'd2] <= -testSampleData[testSampleRead+9'd2];
 
 
-            rates_raw_roll <= testSampleData[testSampleRead] <<< 13;
-            rates_raw_pitch <=testSampleData[testSampleRead+9'd1] <<< 13;
-            rates_raw_yaw <= testSampleData[testSampleRead+9'd2] <<< 13;
+            rates_raw_roll <= testSampleData[testSampleRead] <<< 8;
+                
+            rates_raw_pitch <=testSampleData[testSampleRead+17'd1] <<< 8;
+            rates_raw_yaw <= testSampleData[testSampleRead+17'd2] <<< 8;
+
+            raw_gyro_samples[0] <= testSampleData[testSampleRead];
+            raw_gyro_samples[1] <= testSampleData[testSampleRead+17'd1];
+            raw_gyro_samples[2] <= testSampleData[testSampleRead+17'd2];
 
             testSampleRead <= testSampleRead + 9'd3;
           `else
-            rates_raw_roll <= { spiRxData[47], spiRxData[47], spiRxData[47],  spiRxData[47], spiRxData[47:32], 12'h0};
-            rates_raw_pitch <= { spiRxData[31], spiRxData[31], spiRxData[31], spiRxData[31], spiRxData[31:16], 12'h0};
-            rates_raw_yaw <= { spiRxData[15], spiRxData[15], 3'h0, spiRxData[15:0], 12'h0};
 
-            // rates_raw_roll <= spiRxData[47:32] <<< 13;
-            // rates_raw_pitch <= spiRxData[31:16] <<< 13;
-            // rates_raw_yaw <= spiRxData[15:0] <<< 13;
+            // rates_raw_roll <= {spiRxData[39:32], spiRxData[47:40]} <<< 13;
+            // rates_raw_pitch <= {spiRxData[23:16], spiRxData[31:24]} <<< 13;
+            // rates_raw_yaw <= {spiRxData[7:0], spiRxData[15:8]} <<< 13;
+
+            // rates_raw_roll <= { spiRxData[47], spiRxData[47], spiRxData[47],  spiRxData[47], spiRxData[47:32], 12'h0};
+            // rates_raw_pitch <= { spiRxData[31], spiRxData[31], spiRxData[31], spiRxData[31], spiRxData[31:16], 12'h0};
+            // rates_raw_yaw <= { spiRxData[15], spiRxData[15], 3'h0, spiRxData[15:0], 12'h0};
+
+            rates_raw_roll <= spiRxData[47:32] <<< 8;
+            rates_raw_pitch <= spiRxData[31:16] <<< 8;
+            rates_raw_yaw <= spiRxData[15:0] <<< 8;
             // Yaw
             // gyroSampleBuffer[sample_write+9'd2] <= spiRxData[15:0];// / 2000 / 16  - gyroOffsets[2]) * -1;// / `GYRO_RATE_SCALAR;
 

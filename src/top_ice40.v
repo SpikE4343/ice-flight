@@ -21,7 +21,7 @@ module top
     input PIN_10,
     output PIN_11,
     output PIN_12,
-    input PIN_13,
+    output PIN_13,
 
     // Motor outputs
     output PIN_21,

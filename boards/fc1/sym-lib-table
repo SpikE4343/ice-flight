@@ -1,0 +1,5 @@
+(sym_lib_table
+  (lib (name OrangeCrab-rescue)(type Legacy)(uri ${KIPRJMOD}/OrangeCrab-rescue.lib)(options "")(descr ""))
+  (lib (name tinyfpga)(type Legacy)(uri ${KIPRJMOD}/tinyfpga.lib)(options "")(descr ""))
+  (lib (name TinyFPGA-BX-cache)(type Legacy)(uri ${KIPRJMOD}/TinyFPGA-BX-cache.lib)(options "")(descr ""))
+)
