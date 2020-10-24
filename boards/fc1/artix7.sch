@@ -740,7 +740,7 @@ FLASH_MISO
 Wire Wire Line
 	12350 3150 12900 3150
 Wire Wire Line
-	12350 3050 12900 3050
+	12350 3050 12700 3050
 Wire Wire Line
 	12350 3450 12900 3450
 Text GLabel 12650 4300 0    60   Input ~ 0
@@ -791,48 +791,25 @@ F 3 "~" H 6150 13800 50  0001 C CNN
 	1    6150 13800
 	1    0    0    -1  
 $EndComp
-$Comp
-L Mechanical:MountingHole H5
-U 1 1 5EF0A681
-P 7150 13100
-F 0 "H5" H 7250 13146 50  0000 L CNN
-F 1 "MountingHole" H 7250 13055 50  0000 L CNN
-F 2 "MountingHole:MountingHole_4mm" H 7150 13100 50  0001 C CNN
-F 3 "~" H 7150 13100 50  0001 C CNN
-	1    7150 13100
-	1    0    0    -1  
-$EndComp
-$Comp
-L Mechanical:MountingHole H6
-U 1 1 5EF0A687
-P 7150 13350
-F 0 "H6" H 7250 13396 50  0000 L CNN
-F 1 "MountingHole" H 7250 13305 50  0000 L CNN
-F 2 "MountingHole:MountingHole_4mm" H 7150 13350 50  0001 C CNN
-F 3 "~" H 7150 13350 50  0001 C CNN
-	1    7150 13350
-	1    0    0    -1  
-$EndComp
-$Comp
-L Mechanical:MountingHole H7
-U 1 1 5EF0A68D
-P 7150 13600
-F 0 "H7" H 7250 13646 50  0000 L CNN
-F 1 "MountingHole" H 7250 13555 50  0000 L CNN
-F 2 "MountingHole:MountingHole_4mm" H 7150 13600 50  0001 C CNN
-F 3 "~" H 7150 13600 50  0001 C CNN
-	1    7150 13600
-	1    0    0    -1  
-$EndComp
-$Comp
-L Mechanical:MountingHole H8
-U 1 1 5EF0A693
-P 7150 13850
-F 0 "H8" H 7250 13896 50  0000 L CNN
-F 1 "MountingHole" H 7250 13805 50  0000 L CNN
-F 2 "MountingHole:MountingHole_4mm" H 7150 13850 50  0001 C CNN
-F 3 "~" H 7150 13850 50  0001 C CNN
-	1    7150 13850
-	1    0    0    -1  
-$EndComp
+Text GLabel 13100 6800 0    50   Input ~ 0
+USB_N
+Text GLabel 13100 7300 0    50   Input ~ 0
+USB_P
+Text GLabel 13100 6700 0    50   Input ~ 0
+USB_PU
+Text GLabel 17450 3250 0    60   Input ~ 0
+FLASH_CS
+Wire Wire Line
+	17450 3250 17850 3250
+Wire Wire Line
+	12900 3250 12700 3250
+Wire Wire Line
+	12700 3250 12700 3050
+Connection ~ 12700 3050
+Wire Wire Line
+	12700 3050 12900 3050
+Text GLabel 16900 3350 0    60   Input ~ 0
+FLASH_SCLK
+Wire Wire Line
+	16900 3350 17850 3350
 $EndSCHEMATC
