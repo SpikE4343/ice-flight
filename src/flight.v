@@ -300,6 +300,8 @@ module flight
     //     fc_state <= ST_RESET;
     // end
     
+    flight_mem_write <= 0;
+
     case(fc_state)
 
       ST_RESET: 
@@ -507,15 +509,26 @@ module flight
 
         DEBUG_SEND_GYRO: 
         begin
+            flight_mem_addr <= 0;
+            flight_mem_write <= 0; 
+          
           case(w_debug_msg_data_index)
             // * Roll
-            8'd00: debug_msg_data <= gyro_rates_sampled[0][7:0];
-            8'd01: debug_msg_data <= gyro_rates_sampled[0][15:8];
-            8'd02: debug_msg_data <= gyro_rates_sampled[0][23:16];
-            8'd03: debug_msg_data <= gyro_rates_sampled[0][31:24];
+              8'd00:  debug_msg_data <= 8'h0;
+              
+              8'd01: debug_msg_data <= flight_mem_read_data[7:0];
+              8'd02: debug_msg_data <= flight_mem_read_data[15:8];
+              8'd03: debug_msg_data <= flight_mem_read_data[23:16];
+              8'd04: debug_msg_data <= flight_mem_read_data[31:24];
+
+            
+//            8'd00: debug_msg_data <= gyro_rates_sampled[0][7:0];
+//            8'd01: debug_msg_data <= gyro_rates_sampled[0][15:8];
+//            8'd02: debug_msg_data <= gyro_rates_sampled[0][23:16];
+//            8'd03: debug_msg_data <= gyro_rates_sampled[0][31:24];
 
             // * Pitch
-            8'd04: debug_msg_data <= gyro_rates_sampled[1][7:0];
+            //8'd04: debug_msg_data <= gyro_rates_sampled[1][7:0];
             8'd05: debug_msg_data <= gyro_rates_sampled[1][15:8];
             8'd06: debug_msg_data <= gyro_rates_sampled[1][23:16];
             8'd07: debug_msg_data <= gyro_rates_sampled[1][31:24];
@@ -762,7 +775,7 @@ module flight
   BlockMemorySinglePort #(
       .DEPTH(32),
       .DATA_WIDTH(32)
-  ) flight_data (
+  ) flight_mem (
   .clk(clk),
   .reset(reset),
   .write(flight_mem_write),
@@ -845,81 +858,7 @@ module flight
     end : motor_mixers
   endgenerate
 
-  // // ** Motor 1 Mixer
   
-
-  // motor_mixer #(
-  //   .MOTOR_INDEX(0),
-  //   .ROLL_MIX(motorMix_0_INPUT_ROLL),
-  //   .PITCH_MIX(motorMix_0_INPUT_PITCH),
-  //   .YAW_MIX(motorMix_0_INPUT_YAW),
-  //   .THROTTLE_MIX(motorMix_0_INPUT_THROTTLE)
-  // ) motorMixer1 (
-  //   .armed(armed),
-  //   .failsafe(failsafe),
-  //   .inputs_roll(inputs[INPUT_ROLL]),
-  //   .inputs_pitch(inputs[INPUT_PITCH]),
-  //   .inputs_yaw(inputs[INPUT_YAW]),
-  //   .inputs_throttle(inputs[INPUT_THROTTLE]),
-  //   .mixedThrottle(mixedThrottle[0])
-  // );
-
-
-  
-
-  // motor_mixer #(
-  //   .MOTOR_INDEX(1),
-  //   .ROLL_MIX(motorMix_1_INPUT_ROLL),
-  //   .PITCH_MIX(motorMix_1_INPUT_PITCH),
-  //   .YAW_MIX(motorMix_1_INPUT_YAW),
-  //   .THROTTLE_MIX(motorMix_1_INPUT_THROTTLE)
-  // ) motorMixer2 (
-  //   .armed(armed),
-  //   .failsafe(failsafe),
-  //   .inputs_roll(inputs[INPUT_ROLL]),
-  //   .inputs_pitch(inputs[INPUT_PITCH]),
-  //   .inputs_yaw(inputs[INPUT_YAW]),
-  //   .inputs_throttle(inputs[INPUT_THROTTLE]),
-  //   .mixedThrottle(mixedThrottle[1])
-  // );
-
- 
-
-  // motor_mixer #(
-  //   .MOTOR_INDEX(2),
-  //   .ROLL_MIX(motorMix_2_INPUT_ROLL),
-  //   .PITCH_MIX(motorMix_2_INPUT_PITCH),
-  //   .YAW_MIX(motorMix_2_INPUT_YAW),
-  //   .THROTTLE_MIX(motorMix_2_INPUT_THROTTLE)
-  // ) motorMixer3 (
-  //   .armed(armed),
-  //   .failsafe(failsafe),
-  //   .inputs_roll(inputs[INPUT_ROLL]),
-  //   .inputs_pitch(inputs[INPUT_PITCH]),
-  //   .inputs_yaw(inputs[INPUT_YAW]),
-  //   .inputs_throttle(inputs[INPUT_THROTTLE]),
-  //   .mixedThrottle(mixedThrottle[2])
-  // );
-
-  
-
-  // motor_mixer #(
-  //   .MOTOR_INDEX(3),
-  //   .ROLL_MIX(motorMix_3_INPUT_ROLL),
-  //   .PITCH_MIX(motorMix_3_INPUT_PITCH),
-  //   .YAW_MIX(motorMix_3_INPUT_YAW),
-  //   .THROTTLE_MIX(motorMix_3_INPUT_THROTTLE)
-  // ) motorMixer4 (
-  //   .armed(armed),
-  //   .failsafe(failsafe),
-  //   .inputs_roll(inputs[INPUT_ROLL]),
-  //   .inputs_pitch(inputs[INPUT_PITCH]),
-  //   .inputs_yaw(inputs[INPUT_YAW]),
-  //   .inputs_throttle(inputs[INPUT_THROTTLE]),
-  //   .mixedThrottle(mixedThrottle[3])
-  // );
-
-
   // * TODO: merge motor control into single 
   // *  module with multiple channels, one for each motor.
   // * This should save some register space since all outputs 
@@ -941,55 +880,5 @@ module flight
     end : motor_chain
   endgenerate
 
-  // //========================================
-  // // * Motor 1 Output
-  // //========================================
-  // motor_control #(
-  //   .BASE_FREQ(BASE_FREQ),
-  //   .DSHOT_FREQ(MOTOR_DSHOT_FREQ)
-  // ) motor1 (
-  //   .clock(clk),
-  //   .command(motorThrottle[0][10:0]),
-  //   .send(motor_send),
-  //   .txOut(motorOutputs[0])
-  // );
-
-  // //========================================
-  // // * Motor 2 Output
-  // //========================================
-  // motor_control #(
-  //   .BASE_FREQ(BASE_FREQ),
-  //   .DSHOT_FREQ(MOTOR_DSHOT_FREQ)
-  // ) motor2 (
-  //   .clock(clk),
-  //   .command((motorThrottle[1][10:0])),
-  //   .send(motor_send),
-  //   .txOut(motorOutputs[1])
-  // );
-
-  // //========================================
-  // // * Motor 3 Output
-  // //========================================
-  // motor_control #(
-  //   .BASE_FREQ(BASE_FREQ),
-  //   .DSHOT_FREQ(MOTOR_DSHOT_FREQ)
-  // ) motor3 (
-  //   .clock(clk),
-  //   .command((motorThrottle[2][10:0])),
-  //   .send(motor_send),
-  //   .txOut(motorOutputs[2])
-  // );
-
-  // //========================================
-  // // * Motor 4 Output
-  // //========================================
-  // motor_control #(
-  //   .BASE_FREQ(BASE_FREQ),
-  //   .DSHOT_FREQ(MOTOR_DSHOT_FREQ)
-  // ) motor4 (
-  //   .clock(clk),
-  //   .command((motorThrottle[3][10:0])),
-  //   .send(motor_send),
-  //   .txOut(motorOutputs[3])
-  // );
+  
 endmodule
