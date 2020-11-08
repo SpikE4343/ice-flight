@@ -56,6 +56,7 @@ dkms.conf
 *.dblite
 *.bin
 *.asc
+*.gtkw
 
 vivado/vivado.cache/
 vivado/vivado.sim/
@@ -67,3 +68,5 @@ vivado/vivado.runs/
 src/hardware.json
 src/hardware.rpt
 __pycache__/
+nmigen.env/
+src/nmigen/build/
