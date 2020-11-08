@@ -1,0 +1,11 @@
+autopep8==1.5.4
+importlib-resources==3.1.1
+Jinja2==2.11.2
+MarkupSafe==1.1.1
+nmigen==0.3.dev196+g5581fdc
+nmigen-boards==0.1.dev158+gbcc1467
+nmigen-soc==0.1.dev43+gecfad4d
+nmigen-stdio==0.1.dev9+g01eb8fd
+pycodestyle==2.6.0
+pyvcd==0.2.3
+toml==0.10.1
