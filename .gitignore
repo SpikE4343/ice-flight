@@ -68,5 +68,6 @@ vivado/vivado.runs/
 src/hardware.json
 src/hardware.rpt
 __pycache__/
-nmigen.env/
+.env/
 src/nmigen/build/
+
